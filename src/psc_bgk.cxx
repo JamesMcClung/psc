@@ -19,7 +19,7 @@
 //
 // EDIT to change order / floating point type / cuda / 2d/3d
 
-using Dim = dim_yz;
+using Dim = dim_xyz;
 #ifdef USE_CUDA
 using PscConfig = PscConfig1vbecCuda<Dim>;
 #else
