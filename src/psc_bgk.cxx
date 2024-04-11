@@ -294,8 +294,8 @@ struct pdist_case4
                   (g.reverse_v_half && y < 0 ? -1 : 1);
     if (rho == 0) {
       //  p_y and p_z reduce to same case at rho=0, but not p_x
-      double p_x = coef * g.m_e * (uniform.get() < p_simple) ? simple_dist.get()
-                                                             : v_x_dist.get();
+      double p_x = coef * g.m_e *
+                   (uniform.get() < p_simple ? simple_dist : v_x_dist).get();
       double p_y = coef * g.m_e * simple_dist.get();
       double p_z = coef * g.m_e * simple_dist.get();
       return Double3{p_x, p_y, p_z};
