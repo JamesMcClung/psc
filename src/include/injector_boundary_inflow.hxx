@@ -135,19 +135,16 @@ public:
             // Update currents
             // Taken from push_particles_1vb.hxx PushParticlesVb::push_mprts()
 
-            real_t initial_normalized_pos[3];
-            for (int d = 0; d < 3; d++) {
-              initial_normalized_pos[d] = initial_x[d] * dxi[d];
-            }
+            Real3 initial_normalized_pos = initial_x * dxi;
             ip.set_coeffs(initial_normalized_pos);
 
             // FIELD INTERPOLATION
             Real3 E = {ip.ex(EM), ip.ey(EM), ip.ez(EM)};
             Real3 H = {ip.hx(EM), ip.hy(EM), ip.hz(EM)};
 
-            int final_idx[3];
-            real_t final_offset[3];
-            real_t final_normalized_pos[3];
+            Int3 final_idx;
+            Real3 final_offset;
+            Real3 final_normalized_pos;
             pi.find_idx_off_pos_1st_rel(initial_x, final_idx, final_offset,
                                         final_normalized_pos, real_t(0.));
 
