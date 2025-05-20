@@ -145,7 +145,7 @@ public:
             Int3 final_idx;
             Real3 final_offset;
             Real3 final_normalized_pos;
-            pi.find_idx_off_pos_1st_rel(initial_x, final_idx, final_offset,
+            pi.find_idx_off_pos_1st_rel(prt.x, final_idx, final_offset,
                                         final_normalized_pos, real_t(0.));
 
             // CURRENT DENSITY BETWEEN (n+.5)*dt and (n+1.5)*dt
