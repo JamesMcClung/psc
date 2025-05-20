@@ -137,7 +137,7 @@ public:
 
             real_t initial_normalized_pos[3];
             for (int d = 0; d < 3; d++) {
-              initial_normalized_pos[d] = prt.x[d] * dxi[d];
+              initial_normalized_pos[d] = initial_x[d] * dxi[d];
             }
             ip.set_coeffs(initial_normalized_pos);
 
