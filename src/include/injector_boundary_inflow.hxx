@@ -9,7 +9,7 @@
 #include "pushp.hxx"
 #include "dim.hxx"
 #include "setup_particles.hxx"
-#include "../libpsc/psc_push_particles/inc_push.c"
+#include "../libpsc/psc_push_particles/inc_push.cxx"
 
 class ParticleGeneratorMaxwellian
 {
