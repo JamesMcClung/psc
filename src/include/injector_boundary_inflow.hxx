@@ -111,9 +111,12 @@ public:
             psc::particle::Inject prt =
               partice_generator.get(cell_corner, grid.domain.dx);
 
+            std::cout << prt.x << " = x0\n";
             Real3 v = advance.calc_v(prt.u);
             Real3 initial_x = prt.x;
             advance.push_x(prt.x, v, 1.0);
+
+            std::cout << prt.x << " = x1\n";
 
             if (prt.x[INJECT_DIM_IDX_] < grid.domain.corner[INJECT_DIM_IDX_]) {
               continue;
@@ -125,17 +128,23 @@ public:
             // Taken from push_particles_1vb.hxx PushParticlesVb::push_mprts()
 
             Real3 initial_normalized_pos = initial_x * dxi;
+            std::cout << initial_normalized_pos
+                      << " = initial_normalized_pos\n";
 
             Int3 final_idx;
             Real3 final_offset;
             Real3 final_normalized_pos;
             pi.find_idx_off_pos_1st_rel(prt.x, final_idx, final_offset,
                                         final_normalized_pos, real_t(0.));
+            std::cout << final_normalized_pos << " = final_normalized_pos\n";
+
+            // -|-.-|-.-|-
 
             // CURRENT DENSITY BETWEEN (n+.5)*dt and (n+1.5)*dt
             real_t qni_wni = grid.kinds[prt.kind].q * prt.w;
             current.calc_j(J, initial_normalized_pos, final_normalized_pos,
                            final_idx, cell_idx, qni_wni, v);
+            flds.storage()(cell_idx[0], 1, cell_idx[2] + 2, JXI + 1) = qni_wni;
           }
         }
       }

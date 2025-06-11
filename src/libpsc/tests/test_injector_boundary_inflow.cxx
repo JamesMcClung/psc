@@ -51,10 +51,10 @@ Grid_t* setupGrid()
 
   auto bc =
     // FIXME wrong BCs
-    psc::grid::BC{{BND_FLD_PERIODIC, BND_FLD_CONDUCTING_WALL, BND_FLD_PERIODIC},
-                  {BND_FLD_PERIODIC, BND_FLD_CONDUCTING_WALL, BND_FLD_PERIODIC},
-                  {BND_PRT_PERIODIC, BND_PRT_REFLECTING, BND_PRT_PERIODIC},
-                  {BND_PRT_PERIODIC, BND_PRT_REFLECTING, BND_PRT_PERIODIC}};
+    psc::grid::BC{{BND_FLD_PERIODIC, BND_FLD_PERIODIC, BND_FLD_PERIODIC},
+                  {BND_FLD_PERIODIC, BND_FLD_PERIODIC, BND_FLD_PERIODIC},
+                  {BND_PRT_PERIODIC, BND_PRT_PERIODIC, BND_PRT_PERIODIC},
+                  {BND_PRT_PERIODIC, BND_PRT_PERIODIC, BND_PRT_PERIODIC}};
 
   auto kinds = Grid_t::Kinds(NR_KINDS);
   kinds[KIND_ELECTRON] = {-1.0, 1.0, "e"};
@@ -88,14 +88,17 @@ struct ParticleGeneratorTest
 
   psc::particle::Inject get(Real3 min_pos, Real3 pos_range)
   {
-    Real3 x = min_pos + pos_range * Real3{.999, .999, .999};
-    Real3 u{0.0, 2.0, 0.0};
+    Real uy = n_injected++ > 0 ? 0. : 2.;
+    Real3 x = min_pos + pos_range * Real3{0, .999, 0.};
+    Real3 u{0.0, uy, 0.0};
     Real w = 1.0;
     int kind_idx = 1;
     psc::particle::Tag tag = 0;
 
     return {x, u, w, kind_idx, tag};
   }
+
+  int n_injected = 0;
 };
 
 TEST(InjectorBoundaryInflowTest, Integration)
@@ -105,7 +108,7 @@ TEST(InjectorBoundaryInflowTest, Integration)
 
   PscParams psc_params;
 
-  psc_params.nmax = 2;
+  psc_params.nmax = 1;
   psc_params.stats_every = 1;
   psc_params.cfl = .75;
 
@@ -159,6 +162,7 @@ TEST(InjectorBoundaryInflowTest, Integration)
   }
 
   ASSERT_GT(prts.size(), 0);
+  ASSERT_EQ(prts.size(), 1);
 }
 
 // ======================================================================
