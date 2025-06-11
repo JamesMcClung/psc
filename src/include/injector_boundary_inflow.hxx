@@ -81,7 +81,6 @@ public:
     const Grid_t& grid = mprts.grid();
     auto injectors_by_patch = mprts.injector();
 
-    PI<real_t> pi(grid);
     Real3 dxi = Real3{1., 1., 1.} / Real3(grid.domain.dx);
     Current current(grid);
 
@@ -132,10 +131,9 @@ public:
                       << " = initial_normalized_pos\n";
 
             Int3 final_idx;
-            Real3 final_offset;
             Real3 final_normalized_pos;
-            pi.find_idx_off_pos_1st_rel(prt.x, final_idx, final_offset,
-                                        final_normalized_pos, real_t(0.));
+            find_idx_pos_1st_rel(prt.x, dxi, final_idx, final_normalized_pos,
+                                 real_t(0.));
             std::cout << final_normalized_pos << " = final_normalized_pos\n";
 
             // -|-.-|-.-|-
