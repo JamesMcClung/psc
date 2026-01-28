@@ -293,11 +293,15 @@ struct SetupParticles
     }
 
     prof_start(pr);
-    const auto& grid = mprts.grid();
+    const Grid_t& grid = mprts.grid();
 
     // mprts.reserve_all(n_prts_by_patch); FIXME
 
     auto inj = mprts.injector();
+
+    int seed = rng::detail::get_process_seed();
+    rng::Uniform<real_t> pos_offset_rngs[2] = {{-0.5, 0.5, seed},
+                                               {-0.5, 0.5, seed}};
 
     for (int p = 0; p < mprts.n_patches(); ++p) {
       auto injector = inj[p];
@@ -306,7 +310,11 @@ struct SetupParticles
                   [&](int n_in_cell, psc_particle_np& np, Double3& pos) {
                     for (int cnt = 0; cnt < n_in_cell; cnt++) {
                       real_t weight = getWeight(np.n, n_in_cell);
-                      auto prt = setupParticle(np, pos, weight);
+                      auto rng = pos_offset_rngs[np.kind];
+                      Double3 pos2 =
+                        pos + Double3{rng.get(), rng.get(), rng.get()} *
+                                grid.domain.dx;
+                      auto prt = setupParticle(np, pos2, weight);
                       injector(prt);
                     }
                   });
