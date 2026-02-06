@@ -685,7 +685,6 @@ struct BndFields_ : BndFieldsBase
     Int3 stop = mflds.im();
     stop[d] = 0;
     for (Int3 i3 : VecRange(start, stop)) {
-      std::cout << "adding e to " << i3 << "\n";
       F(EX, i3) = background_e[0];
       F(EY, i3) = background_e[1];
       F(EZ, i3) = background_e[2];
