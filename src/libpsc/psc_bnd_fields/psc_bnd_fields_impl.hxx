@@ -39,7 +39,7 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              // background_E_lo(mflds, p, d);
+              set_background_E_lo(mflds, p, d);
               break;
             }
             default: {
@@ -61,7 +61,7 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              // background_E_hi(mflds, p, d);
+              set_background_E_hi(mflds, p, d);
               break;
             }
             default: {
@@ -93,8 +93,8 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              // radiative_H_lo(mflds, p, d);
-              // background_H_lo(mflds, p, d);
+              radiative_H_lo(mflds, p, d);
+              add_background_H_lo(mflds, p, d);
               break;
             }
             default: {
@@ -115,8 +115,8 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              // radiative_H_hi(mflds, p, d);
-              // background_H_hi(mflds, p, d);
+              radiative_H_hi(mflds, p, d);
+              add_background_H_hi(mflds, p, d);
               break;
             }
             default: {
@@ -678,7 +678,7 @@ struct BndFields_ : BndFieldsBase
 #endif
   }
 
-  void background_E_lo(MfieldsState& mflds, int p, int d)
+  void set_background_E_lo(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -686,13 +686,13 @@ struct BndFields_ : BndFieldsBase
     stop[d] = 0;
     for (Int3 i3 : VecRange(start, stop)) {
       std::cout << "adding e to " << i3 << "\n";
-      F(EX, i3) += background_e_[0];
-      F(EY, i3) += background_e_[1];
-      F(EZ, i3) += background_e_[2];
+      F(EX, i3) = background_e_[0];
+      F(EY, i3) = background_e_[1];
+      F(EZ, i3) = background_e_[2];
     }
   }
 
-  void background_E_hi(MfieldsState& mflds, int p, int d)
+  void set_background_E_hi(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -703,16 +703,16 @@ struct BndFields_ : BndFieldsBase
     neg1[d] = -1;
 
     for (Int3 i3 : VecRange(start, stop)) {
-      F(EX, i3) += background_e_[0];
-      F(EY, i3) += background_e_[1];
-      F(EZ, i3) += background_e_[2];
+      F(EX, i3) = background_e_[0];
+      F(EY, i3) = background_e_[1];
+      F(EZ, i3) = background_e_[2];
 
       // the other two components of e are in the domain at this index
-      F(EX + d, i3 + neg1) += background_e_[d];
+      F(EX + d, i3 + neg1) = background_e_[d];
     }
   }
 
-  void background_H_lo(MfieldsState& mflds, int p, int d)
+  void add_background_H_lo(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -725,7 +725,7 @@ struct BndFields_ : BndFieldsBase
     }
   }
 
-  void background_H_hi(MfieldsState& mflds, int p, int d)
+  void add_background_H_hi(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
