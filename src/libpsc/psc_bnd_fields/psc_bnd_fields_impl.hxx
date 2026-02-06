@@ -39,7 +39,7 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              set_background_E_lo(mflds, p, d);
+              set_background_Elo(mflds, p, d);
               break;
             }
             default: {
@@ -61,7 +61,7 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              set_background_E_hi(mflds, p, d);
+              set_background_Ehi(mflds, p, d);
               break;
             }
             default: {
@@ -94,7 +94,7 @@ struct BndFields_ : BndFieldsBase
             }
             case BND_FLD_OPEN: {
               radiative_H_lo(mflds, p, d);
-              add_background_H_lo(mflds, p, d);
+              add_background_Hlo(mflds, p, d);
               break;
             }
             default: {
@@ -116,7 +116,7 @@ struct BndFields_ : BndFieldsBase
             }
             case BND_FLD_OPEN: {
               radiative_H_hi(mflds, p, d);
-              add_background_H_hi(mflds, p, d);
+              add_background_Hhi(mflds, p, d);
               break;
             }
             default: {
@@ -678,7 +678,7 @@ struct BndFields_ : BndFieldsBase
 #endif
   }
 
-  void set_background_E_lo(MfieldsState& mflds, int p, int d)
+  void set_background_Elo(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -686,13 +686,13 @@ struct BndFields_ : BndFieldsBase
     stop[d] = 0;
     for (Int3 i3 : VecRange(start, stop)) {
       std::cout << "adding e to " << i3 << "\n";
-      F(EX, i3) = background_e_[0];
-      F(EY, i3) = background_e_[1];
-      F(EZ, i3) = background_e_[2];
+      F(EX, i3) = background_e[0];
+      F(EY, i3) = background_e[1];
+      F(EZ, i3) = background_e[2];
     }
   }
 
-  void set_background_E_hi(MfieldsState& mflds, int p, int d)
+  void set_background_Ehi(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -703,29 +703,29 @@ struct BndFields_ : BndFieldsBase
     neg1[d] = -1;
 
     for (Int3 i3 : VecRange(start, stop)) {
-      F(EX, i3) = background_e_[0];
-      F(EY, i3) = background_e_[1];
-      F(EZ, i3) = background_e_[2];
+      F(EX, i3) = background_e[0];
+      F(EY, i3) = background_e[1];
+      F(EZ, i3) = background_e[2];
 
       // the other two components of e are in the domain at this index
-      F(EX + d, i3 + neg1) = background_e_[d];
+      F(EX + d, i3 + neg1) = background_e[d];
     }
   }
 
-  void add_background_H_lo(MfieldsState& mflds, int p, int d)
+  void add_background_Hlo(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
     Int3 stop = mflds.im();
     stop[d] = 0;
     for (Int3 i3 : VecRange(start, stop)) {
-      F(HX, i3) += background_h_[0];
-      F(HY, i3) += background_h_[1];
-      F(HZ, i3) += background_h_[2];
+      F(HX, i3) += background_h[0];
+      F(HY, i3) += background_h[1];
+      F(HZ, i3) += background_h[2];
     }
   }
 
-  void add_background_H_hi(MfieldsState& mflds, int p, int d)
+  void add_background_Hhi(MfieldsState& mflds, int p, int d)
   {
     auto F = make_Fields3d<dim_t>(mflds[p]);
     Int3 start = mflds.ib();
@@ -736,21 +736,20 @@ struct BndFields_ : BndFieldsBase
     neg1[d] = -1;
 
     for (Int3 i3 : VecRange(start, stop)) {
-      F(HX, i3) += background_h_[0];
-      F(HY, i3) += background_h_[1];
-      F(HZ, i3) += background_h_[2];
+      F(HX, i3) += background_h[0];
+      F(HY, i3) += background_h[1];
+      F(HZ, i3) += background_h[2];
 
       // the third component of h is in the domain at this index
       int d1 = (d + 1) % 3;
       int d2 = (d + 2) % 3;
-      F(HX + d1, i3 + neg1) += background_h_[d1];
-      F(HX + d2, i3 + neg1) += background_h_[d2];
+      F(HX + d1, i3 + neg1) += background_h[d1];
+      F(HX + d2, i3 + neg1) += background_h[d2];
     }
   }
 
-private:
-  Vec3<real_t> background_e_ = {0.0, 0.0, 0.05 * 1.1547005383792515};
-  Vec3<real_t> background_h_ = {.11547005383792515, 0.0, 0.0};
+  Vec3<real_t> background_e = {0.0, 0.0, 0.0};
+  Vec3<real_t> background_h = {0.0, 0.0, 0.0};
 };
 
 // ======================================================================
