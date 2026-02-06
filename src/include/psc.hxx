@@ -517,6 +517,7 @@ private:
 
 public:
   const Grid_t& grid() { return *grid_; }
+  BndFields bndf_;
 
 private:
   double time_start_;
@@ -540,7 +541,6 @@ protected:
   PushParticles pushp_;
   PushFields pushf_;
   Bnd bnd_;
-  BndFields bndf_;
   BndParticles bndp_;
 
   Checkpointing checkpointing_;

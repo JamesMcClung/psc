@@ -750,6 +750,11 @@ static void run(int argc, char** argv)
   auto psc = makePscIntegrator<PscConfig>(psc_params, *grid_ptr, mflds, mprts,
                                           balance, collision, checks, marder);
 
+  double gamma = 1 / sqrt(1 - sqr(v_upstream_y));
+  psc.bndf_.background_e =
+    -gamma * Double3{0, v_upstream_y, 0}.cross({b_x, b_y, b_z});
+  psc.bndf_.background_h = {b_x * gamma, b_y, b_z * gamma};
+
   psc.add_diagnostic(&outf);
   psc.add_diagnostic(&outp);
   psc.add_diagnostic(&oute);
