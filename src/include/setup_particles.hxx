@@ -311,9 +311,14 @@ struct SetupParticles
                     for (int cnt = 0; cnt < n_in_cell; cnt++) {
                       real_t weight = getWeight(np.n, n_in_cell);
                       auto rng = pos_offset_rngs[np.kind];
-                      Double3 pos2 =
-                        pos + Double3{rng.get(), rng.get(), rng.get()} *
-                                grid.domain.dx;
+
+                      Double3 pos2 = pos;
+                      for (int d = 0; d < 3; d++) {
+                        if (!grid.isInvar(d)) {
+                          pos2[d] += rng.get() * grid.domain.dx[d];
+                        }
+                      }
+
                       auto prt = setupParticle(np, pos2, weight);
                       injector(prt);
                     }
