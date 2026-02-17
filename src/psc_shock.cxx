@@ -754,6 +754,8 @@ static void run(int argc, char** argv)
   psc.bndf_.background_e =
     -gamma * Double3{0, v_upstream_y, 0}.cross({b_x, b_y, b_z});
   psc.bndf_.background_h = {b_x * gamma, b_y, b_z * gamma};
+  std::cout << "e: " << psc.bndf_.background_e << "\n";
+  std::cout << "h: " << psc.bndf_.background_h << "\n";
 
   psc.add_diagnostic(&outf);
   psc.add_diagnostic(&outp);
