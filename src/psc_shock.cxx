@@ -709,7 +709,7 @@ static void run(int argc, char** argv)
   // -- output fields
   OutputFieldsParams outf_params{};
   outf_params.fields.pfield.out_interval = out_interval;
-  outf_params.moments.pfield.out_interval = out_interval;
+  outf_params.moments.pfield.out_interval = 0; // prevent segfault
   OutputFields<MfieldsState, Mparticles, Dim> outf{grid, outf_params};
 
   // -- output particles
