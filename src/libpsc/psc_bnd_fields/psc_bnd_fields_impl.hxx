@@ -93,7 +93,7 @@ struct BndFields_ : BndFieldsBase
               break;
             }
             case BND_FLD_OPEN: {
-              radiative_H_lo(mflds, p, d);
+              // radiative_H_lo(mflds, p, d);
               add_background_Hlo(mflds, p, d);
               break;
             }
@@ -718,9 +718,9 @@ struct BndFields_ : BndFieldsBase
     Int3 stop = mflds.im();
     stop[d] = 0;
     for (Int3 i3 : VecRange(start, stop)) {
-      F(HX, i3) += background_h[0];
-      F(HY, i3) += background_h[1];
-      F(HZ, i3) += background_h[2];
+      F(HX, i3) = background_h[0];
+      F(HY, i3) = background_h[1];
+      F(HZ, i3) = background_h[2];
     }
   }
 
