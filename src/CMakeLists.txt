@@ -20,6 +20,7 @@ add_psc_executable(psc_whistler)
 add_psc_executable(psc_harris_yz)
 add_psc_executable(psc_2d_shock)
 add_psc_executable(psc_radiation)
+add_psc_executable(psc_standing_shock)
 
 if(NOT USE_CUDA)
   install(
@@ -29,6 +30,6 @@ if(NOT USE_CUDA)
 endif()
 
 install(
-  TARGETS psc_bubble_yz psc_flatfoil_yz psc_whistler
+  TARGETS psc_bubble_yz psc_flatfoil_yz psc_whistler psc_standing_shock
   RUNTIME DESTINATION bin
 )
