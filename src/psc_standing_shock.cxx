@@ -41,17 +41,24 @@ using Real3 = Vec3<real_t>;
 
 PscParams psc_params;
 
-double electron_temperature;
-double ion_temperature;
 double electron_mass;
 double ion_mass;
 
+double n_upstream;
 Double3 v_upstream;
+double te_upstream;
+double ti_upstream;
+Real3 h0_upstream;
+Real3 e0_upstream;
 
-Real3 background_h_upstream;
+double compression;
 
-Real3 background_e;
-Real3 background_h;
+double n_downstream;
+Double3 v_downstream;
+double te_downstream;
+double ti_downstream;
+Real3 h0_downstream;
+Real3 e0_downstream;
 
 Int3 gdims;
 Double3 lengths;
@@ -83,24 +90,35 @@ void setupParameters(int argc, char** argv)
   psc_params.cfl = inputParams.getOrDefault<double>("cfl", .75);
   psc_params.write_checkpoint_every_step = 0;
 
-  electron_temperature = inputParams.get<double>("electron_temperature");
-  ion_temperature = inputParams.get<double>("ion_temperature");
   electron_mass = inputParams.get<double>("electron_mass");
   ion_mass = inputParams.get<double>("ion_mass");
 
-  inputParams.errIfPresentAndNotEqual("v_upstream_x", 0.0, "");
+  n_upstream = 1.0;
   v_upstream = {0.0, inputParams.get<double>("v_upstream_y"), 0.0};
-  inputParams.errIfPresentAndNotEqual("v_upstream_z", 0.0, "");
+  te_upstream = inputParams.get<double>("electron_temperature");
+  ti_upstream = inputParams.get<double>("ion_temperature");
+  h0_upstream = {inputParams.get<double>("b_mag"), 0.0, 0.0};
+  e0_upstream = -v_upstream.cross(h0_upstream);
 
-  double b_angle_y_to_x_rad = inputParams.get<double>("b_angle_y_to_x_rad");
-  double b_mag = inputParams.get<double>("b_mag");
-  background_h_upstream =
-    b_mag * Real3{sin(b_angle_y_to_x_rad), cos(b_angle_y_to_x_rad), 0.0};
+  double compression;
+  {
+    double beta =
+      2.0 * n_upstream * (te_upstream + ti_upstream) / h0_upstream.mag2();
+    double a = 1.0 + (1.0 + 2.5 * beta) * h0_upstream.mag2();
+    // for perpendicular shock (2013 Balogh eq.3.36)
+    compression = 8.0 / (a + sqrt(sqr(a) + 2 * h0_upstream.mag2()));
+  }
+  double heating_factor =
+    1.0 + 4.0 / (5.0 * (ti_upstream + te_upstream)) *
+            ((sqr(compression) - 1.0) / (2.0 * sqr(compression)) +
+             (1.0 - compression));
 
-  double gamma = 1 / sqrt(1 - v_upstream.mag2());
-  background_e = -gamma * v_upstream.cross(background_h_upstream);
-  // note: this only holds for vx=vz=0
-  background_h = background_h_upstream * Real3{gamma, 1.0, gamma};
+  n_downstream = n_upstream * compression;
+  v_downstream = v_upstream / compression;
+  te_downstream = te_upstream * heating_factor;
+  ti_downstream = ti_upstream * heating_factor;
+  h0_downstream = h0_upstream * compression;
+  e0_downstream = -v_downstream.cross(h0_downstream);
 
   gdims[0] = inputParams.get<int>("nx");
   gdims[1] = inputParams.get<int>("ny");
@@ -152,14 +170,13 @@ void setupParameters(int argc, char** argv)
 Grid_t* setupGrid()
 {
   // FIXME add a check to catch mismatch between Dim and n grid points early
-  Double3 corner = {0.0, 0.0, 0.0};
+  Double3 corner = {0.0, -lengths[1] / 2.0, 0.0};
   auto domain = Grid_t::Domain{gdims, lengths, corner, n_patches};
 
-  auto bc =
-    psc::grid::BC{{BND_FLD_PERIODIC, BND_FLD_OPEN, BND_FLD_PERIODIC},
-                  {BND_FLD_PERIODIC, BND_FLD_CONDUCTING_WALL, BND_FLD_PERIODIC},
-                  {BND_PRT_PERIODIC, BND_PRT_OPEN, BND_PRT_PERIODIC},
-                  {BND_PRT_PERIODIC, BND_PRT_REFLECTING, BND_PRT_PERIODIC}};
+  auto bc = psc::grid::BC{{BND_FLD_PERIODIC, BND_FLD_OPEN, BND_FLD_PERIODIC},
+                          {BND_FLD_PERIODIC, BND_FLD_OPEN, BND_FLD_PERIODIC},
+                          {BND_PRT_PERIODIC, BND_PRT_OPEN, BND_PRT_PERIODIC},
+                          {BND_PRT_PERIODIC, BND_PRT_OPEN, BND_PRT_PERIODIC}};
 
   auto kinds = Grid_t::Kinds(NR_KINDS);
   kinds[KIND_ELECTRON] = {-1.0, electron_mass, "e"};
@@ -190,15 +207,19 @@ void initializeParticles(Balance& balance, Grid_t*& grid_ptr, Mparticles& mprts)
 
   auto init_np = [&](int kind, Double3 crd, int p, Int3 idx,
                      psc_particle_np& np) {
-    double temperature =
-      np.kind == KIND_ION ? ion_temperature : electron_temperature;
-    np.n = 1.0;
+    double t;
+    Double3 v;
+    if (crd[1] < 0.0) {
+      np.n = n_upstream;
+      v = v_upstream;
+      t = np.kind == KIND_ION ? ti_upstream : te_upstream;
+    } else {
+      np.n = n_downstream;
+      v = v_downstream;
+      t = np.kind == KIND_ION ? ti_upstream : te_upstream;
+    }
     np.p =
-      setup_particles.createMaxwellian({np.kind,
-                                        np.n,
-                                        v_upstream,
-                                        {temperature, temperature, temperature},
-                                        np.tag});
+      setup_particles.createMaxwellian({np.kind, np.n, v, {t, t, t}, np.tag});
   };
 
   partitionAndSetupParticles(setup_particles, balance, grid_ptr, mprts,
@@ -218,13 +239,26 @@ void add_background_fields(MfieldsState& mflds)
 
     int n_ghosts = mflds.ibn().max();
     grid.Foreach_3d(n_ghosts, n_ghosts, [&](int jx, int jy, int jz) {
-      field_patch(HX, jx, jy, jz) += background_h[0];
-      field_patch(HY, jx, jy, jz) += background_h[1];
-      field_patch(HZ, jx, jy, jz) += background_h[2];
+      Real3 h0;
+      Real3 e0;
 
-      field_patch(EX, jx, jy, jz) += background_e[0];
-      field_patch(EY, jx, jy, jz) += background_e[1];
-      field_patch(EZ, jx, jy, jz) += background_e[2];
+      Double3 pos = centering::get_pos(patch, {jx, jy, jz}, centering::NC, 0);
+
+      if (pos[1] < 0.0) {
+        h0 = h0_upstream;
+        e0 = e0_upstream;
+      } else {
+        h0 = h0_downstream;
+        e0 = e0_downstream;
+      }
+
+      field_patch(HX, jx, jy, jz) += h0[0];
+      field_patch(HY, jx, jy, jz) += h0[1];
+      field_patch(HZ, jx, jy, jz) += h0[2];
+
+      field_patch(EX, jx, jy, jz) += e0[0];
+      field_patch(EY, jx, jy, jz) += e0[1];
+      field_patch(EZ, jx, jy, jz) += e0[2];
     });
   }
 }
@@ -808,19 +842,32 @@ static void run(int argc, char** argv)
   int oute_interval = -100;
   DiagEnergies<Mparticles, MfieldsState> oute{grid.comm(), oute_interval};
 
-  auto ion_injector =
+  auto ion_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
-      ParticleGeneratorMaxwellian(
-        KIND_ION, grid.kinds[KIND_ION], v_upstream,
-        {ion_temperature, ion_temperature, ion_temperature}, true),
-      grid);
-  auto electron_injector =
+      ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_upstream,
+                                  {ti_upstream, ti_upstream, ti_upstream},
+                                  true),
+      grid, n_upstream);
+  auto electron_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_upstream,
-        {electron_temperature, electron_temperature, electron_temperature},
-        true),
-      grid);
+        {te_upstream, te_upstream, te_upstream}, true),
+      grid, n_upstream);
+
+  // FIXME support injection at upper boundary
+  auto ion_injector_hi =
+    BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
+      ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_downstream,
+                                  {ti_downstream, ti_downstream, ti_downstream},
+                                  true),
+      grid, n_downstream);
+  auto electron_injector_hi =
+    BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
+      ParticleGeneratorMaxwellian(
+        KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_downstream,
+        {te_downstream, te_downstream, te_downstream}, true),
+      grid, n_downstream);
 
   // ----------------------------------------------------------------------
   // set up initial conditions
@@ -836,18 +883,23 @@ static void run(int argc, char** argv)
 
   psc.add_gauss_corrector(&marder);
 
-  psc.bndf.background_e_lo = background_e;
-  psc.bndf.background_h_lo = background_h;
-  psc.bndf.radiation = new AdvectedPeriodicFields{mflds, v_upstream[1],
-                                                  background_e, background_h};
+  psc.bndf.background_e_lo = e0_upstream;
+  psc.bndf.background_h_lo = h0_upstream;
+  psc.bndf.background_e_hi = e0_downstream;
+  psc.bndf.background_h_hi = h0_downstream;
+  psc.bndf.radiation =
+    new AdvectedPeriodicFields{mflds, v_upstream[1], e0_upstream, h0_upstream};
 
   psc.add_diagnostic(&out_fields);
   psc.add_diagnostic(&out_moments);
   psc.add_diagnostic(&outp);
   psc.add_diagnostic(&oute);
 
-  psc.add_injector(&ion_injector);
-  psc.add_injector(&electron_injector);
+  psc.add_injector(&ion_injector_lo);
+  psc.add_injector(&electron_injector_lo);
+  // upper boundary not yet supported
+  // psc.add_injector(&ion_injector_hi);
+  // psc.add_injector(&electron_injector_hi);
 
   psc.integrate();
 }
