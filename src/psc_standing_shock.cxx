@@ -847,13 +847,13 @@ static void run(int argc, char** argv)
       ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_upstream,
                                   {ti_upstream, ti_upstream, ti_upstream},
                                   true),
-      grid, n_upstream);
+      n_upstream);
   auto electron_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_upstream,
         {te_upstream, te_upstream, te_upstream}, true),
-      grid, n_upstream);
+      n_upstream);
 
   // FIXME support injection at upper boundary
   auto ion_injector_hi =
@@ -861,13 +861,13 @@ static void run(int argc, char** argv)
       ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_downstream,
                                   {ti_downstream, ti_downstream, ti_downstream},
                                   true),
-      grid, n_downstream);
+      n_downstream);
   auto electron_injector_hi =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_downstream,
         {te_downstream, te_downstream, te_downstream}, true),
-      grid, n_downstream);
+      n_downstream);
 
   // ----------------------------------------------------------------------
   // set up initial conditions
