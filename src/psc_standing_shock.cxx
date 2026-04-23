@@ -846,28 +846,28 @@ static void run(int argc, char** argv)
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_upstream,
                                   {ti_upstream, ti_upstream, ti_upstream},
-                                  true),
-      n_upstream);
+                                  true));
+  ion_injector_lo.density = n_upstream;
   auto electron_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_upstream,
-        {te_upstream, te_upstream, te_upstream}, true),
-      n_upstream);
+        {te_upstream, te_upstream, te_upstream}, true));
+  electron_injector_lo.density = n_upstream;
 
   // FIXME support injection at upper boundary
   auto ion_injector_hi =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_downstream,
                                   {ti_downstream, ti_downstream, ti_downstream},
-                                  true),
-      n_downstream);
+                                  true));
+  ion_injector_hi.density = n_downstream;
   auto electron_injector_hi =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_downstream,
-        {te_downstream, te_downstream, te_downstream}, true),
-      n_downstream);
+        {te_downstream, te_downstream, te_downstream}, true));
+  electron_injector_hi.density = n_downstream;
 
   // ----------------------------------------------------------------------
   // set up initial conditions
