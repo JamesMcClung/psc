@@ -224,7 +224,7 @@ void initializeParticles(Balance& balance, Grid_t*& grid_ptr, Mparticles& mprts)
     } else {
       np.n = n_downstream;
       v = v_downstream;
-      t = np.kind == KIND_ION ? ti_upstream : te_upstream;
+      t = np.kind == KIND_ION ? ti_downstream : te_downstream;
     }
     np.p =
       setup_particles.createMaxwellian({np.kind, np.n, v, {t, t, t}, np.tag});
