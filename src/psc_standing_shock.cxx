@@ -100,25 +100,33 @@ void setupParameters(int argc, char** argv)
   h0_upstream = {inputParams.get<double>("b_mag"), 0.0, 0.0};
   e0_upstream = -v_upstream.cross(h0_upstream);
 
-  double compression;
   {
-    double beta =
+    // for perpendicular shock (2013 Balogh eq.3.36 and normalization in
+    // sec.3.3.1)
+    double b_norm = sqrt(ion_mass * n_upstream * v_upstream.mag2());
+    double t_norm = 0.5 * ion_mass * v_upstream.mag2();
+    double beta1 =
       2.0 * n_upstream * (te_upstream + ti_upstream) / h0_upstream.mag2();
-    double a = 1.0 + (1.0 + 2.5 * beta) * h0_upstream.mag2();
-    // for perpendicular shock (2013 Balogh eq.3.36)
-    compression = 8.0 / (a + sqrt(sqr(a) + 2 * h0_upstream.mag2()));
-  }
-  double heating_factor =
-    1.0 + 4.0 / (5.0 * (ti_upstream + te_upstream)) *
-            ((sqr(compression) - 1.0) / (2.0 * sqr(compression)) +
-             (1.0 - compression));
+    Double3 B1 = h0_upstream / b_norm;
+    double T1 = (te_upstream + ti_upstream) / t_norm;
 
-  n_downstream = n_upstream * compression;
-  v_downstream = v_upstream / compression;
-  te_downstream = te_upstream * heating_factor;
-  ti_downstream = ti_upstream * heating_factor;
-  h0_downstream = h0_upstream * compression;
-  e0_downstream = -v_downstream.cross(h0_downstream);
+    double MA_sq =
+      v_upstream.mag2() * ion_mass * n_upstream / h0_upstream.mag2();
+
+    double tmp = 1.0 + (1.0 + 2.5 * beta1) * B1.mag2();
+    double r = 8.0 / (tmp + sqrt(sqr(tmp) + 2 * B1.mag2()));
+
+    double heating_factor =
+      1.0 +
+      4.0 / (5.0 * T1) * ((sqr(r) - 1.0) / (2.0 * sqr(r)) + (1.0 - r) / MA_sq);
+
+    n_downstream = n_upstream * r;
+    v_downstream = v_upstream / r;
+    te_downstream = te_upstream * heating_factor;
+    ti_downstream = ti_upstream * heating_factor;
+    h0_downstream = h0_upstream / h0_upstream.mag() * b_norm * r;
+    e0_downstream = -v_downstream.cross(h0_downstream);
+  }
 
   gdims[0] = inputParams.get<int>("nx");
   gdims[1] = inputParams.get<int>("ny");
