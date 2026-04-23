@@ -862,12 +862,16 @@ static void run(int argc, char** argv)
                                   {ti_downstream, ti_downstream, ti_downstream},
                                   true));
   ion_injector_hi.density = n_downstream;
+  ion_injector_hi.inject_lo = false;
+  ion_injector_hi.inject_hi = true;
   auto electron_injector_hi =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_downstream,
         {te_downstream, te_downstream, te_downstream}, true));
   electron_injector_hi.density = n_downstream;
+  electron_injector_hi.inject_lo = false;
+  electron_injector_hi.inject_hi = true;
 
   // ----------------------------------------------------------------------
   // set up initial conditions
@@ -897,9 +901,8 @@ static void run(int argc, char** argv)
 
   psc.add_injector(&ion_injector_lo);
   psc.add_injector(&electron_injector_lo);
-  // upper boundary not yet supported
-  // psc.add_injector(&ion_injector_hi);
-  // psc.add_injector(&electron_injector_hi);
+  psc.add_injector(&ion_injector_hi);
+  psc.add_injector(&electron_injector_hi);
 
   psc.integrate();
 }
