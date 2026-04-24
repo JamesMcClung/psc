@@ -124,7 +124,7 @@ void setupParameters(int argc, char** argv)
     v_downstream = v_upstream / r;
     te_downstream = te_upstream * heating_factor;
     ti_downstream = ti_upstream * heating_factor;
-    h0_downstream = h0_upstream / h0_upstream.mag() * b_norm * r;
+    h0_downstream = h0_upstream * r;
     e0_downstream = -v_downstream.cross(h0_downstream);
   }
 
