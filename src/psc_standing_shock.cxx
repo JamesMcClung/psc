@@ -853,22 +853,21 @@ static void run(int argc, char** argv)
   auto ion_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_upstream,
-                                  {ti_upstream, ti_upstream, ti_upstream},
-                                  true));
+                                  {ti_upstream, ti_upstream, ti_upstream}));
   ion_injector_lo.density = n_upstream;
   auto electron_injector_lo =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
-      ParticleGeneratorMaxwellian(
-        KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_upstream,
-        {te_upstream, te_upstream, te_upstream}, true));
+      ParticleGeneratorMaxwellian(KIND_ELECTRON, grid.kinds[KIND_ELECTRON],
+                                  v_upstream,
+                                  {te_upstream, te_upstream, te_upstream}));
   electron_injector_lo.density = n_upstream;
 
   // FIXME support injection at upper boundary
   auto ion_injector_hi =
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
-      ParticleGeneratorMaxwellian(KIND_ION, grid.kinds[KIND_ION], v_downstream,
-                                  {ti_downstream, ti_downstream, ti_downstream},
-                                  true));
+      ParticleGeneratorMaxwellian(
+        KIND_ION, grid.kinds[KIND_ION], v_downstream,
+        {ti_downstream, ti_downstream, ti_downstream}));
   ion_injector_hi.density = n_downstream;
   ion_injector_hi.inject_lo = false;
   ion_injector_hi.inject_hi = true;
@@ -876,7 +875,7 @@ static void run(int argc, char** argv)
     BoundaryInjector<ParticleGeneratorMaxwellian, PscConfig::PushParticles>(
       ParticleGeneratorMaxwellian(
         KIND_ELECTRON, grid.kinds[KIND_ELECTRON], v_downstream,
-        {te_downstream, te_downstream, te_downstream}, true));
+        {te_downstream, te_downstream, te_downstream}));
   electron_injector_hi.density = n_downstream;
   electron_injector_hi.inject_lo = false;
   electron_injector_hi.inject_hi = true;
