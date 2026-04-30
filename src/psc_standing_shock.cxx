@@ -49,7 +49,7 @@ Double3 v_upstream;
 double te_upstream;
 double ti_upstream;
 Real3 h0_upstream;
-Real3 e0_upstream;
+Real3 e0; // e0 is constant
 
 double compression;
 
@@ -58,7 +58,6 @@ Double3 v_downstream;
 double te_downstream;
 double ti_downstream;
 Real3 h0_downstream;
-Real3 e0_downstream;
 
 Int3 gdims;
 Double3 lengths;
@@ -98,7 +97,7 @@ void setupParameters(int argc, char** argv)
   te_upstream = inputParams.get<double>("electron_temperature");
   ti_upstream = inputParams.get<double>("ion_temperature");
   h0_upstream = {inputParams.get<double>("b_mag"), 0.0, 0.0};
-  e0_upstream = -v_upstream.cross(h0_upstream);
+  e0 = -v_upstream.cross(h0_upstream);
 
   {
     // for perpendicular shock (2013 Balogh eq.3.36 and normalization in
@@ -125,7 +124,6 @@ void setupParameters(int argc, char** argv)
     te_downstream = te_upstream * heating_factor;
     ti_downstream = ti_upstream * heating_factor;
     h0_downstream = h0_upstream * r;
-    e0_downstream = -v_downstream.cross(h0_downstream);
   }
 
   gdims[0] = inputParams.get<int>("nx");
@@ -248,16 +246,13 @@ void add_background_fields(MfieldsState& mflds)
     int n_ghosts = mflds.ibn().max();
     grid.Foreach_3d(n_ghosts, n_ghosts, [&](int jx, int jy, int jz) {
       Real3 h0;
-      Real3 e0;
 
       Double3 pos = centering::get_pos(patch, {jx, jy, jz}, centering::NC, 0);
 
       if (pos[1] < 0.0) {
         h0 = h0_upstream;
-        e0 = e0_upstream;
       } else {
         h0 = h0_downstream;
-        e0 = e0_downstream;
       }
 
       field_patch(HX, jx, jy, jz) += h0[0];
@@ -888,13 +883,13 @@ static void run(int argc, char** argv)
 
   psc.add_gauss_corrector(&marder);
 
-  psc.bndf.background_e_lo = e0_upstream;
+  psc.bndf.background_e_lo = e0;
   psc.bndf.background_h_lo = h0_upstream;
-  psc.bndf.background_e_hi = e0_downstream;
+  psc.bndf.background_e_hi = e0;
   psc.bndf.background_h_hi = h0_downstream;
   if (turb_db2 > 0.0) {
-    psc.bndf.radiation = new AdvectedPeriodicFields{mflds, v_upstream[1],
-                                                    e0_upstream, h0_upstream};
+    psc.bndf.radiation =
+      new AdvectedPeriodicFields{mflds, v_upstream[1], e0, h0_upstream};
   }
 
   // add background after initializing radiation inflow, which only wants the
