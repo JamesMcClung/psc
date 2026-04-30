@@ -165,6 +165,12 @@ void setupParameters(int argc, char** argv)
   dst << src.rdbuf();
 }
 
+template <typename T>
+T interpolate_across_shock(T upstream, T downstream, double y)
+{
+  return y > 0.0 ? downstream : upstream;
+}
+
 // ======================================================================
 // setupGrid
 //
@@ -211,19 +217,13 @@ void initializeParticles(Balance& balance, Grid_t*& grid_ptr, Mparticles& mprts)
   setup_particles.random_offsets = true;
   setup_particles.initial_momentum_gamma_correction = true;
 
-  auto init_np = [&](int kind, Double3 crd, int p, Int3 idx,
+  auto init_np = [&](int kind, Double3 pos, int p, Int3 idx,
                      psc_particle_np& np) {
-    double t;
-    Double3 v;
-    if (crd[1] < 0.0) {
-      np.n = n_upstream;
-      v = v_upstream;
-      t = np.kind == KIND_ION ? ti_upstream : te_upstream;
-    } else {
-      np.n = n_downstream;
-      v = v_downstream;
-      t = np.kind == KIND_ION ? ti_downstream : te_downstream;
-    }
+    np.n = interpolate_across_shock(n_upstream, n_downstream, pos[1]);
+    double t = interpolate_across_shock(
+      np.kind == KIND_ION ? ti_upstream : te_upstream,
+      np.kind == KIND_ION ? ti_downstream : te_downstream, pos[1]);
+    Double3 v = interpolate_across_shock(v_upstream, v_downstream, pos[1]);
     np.p =
       setup_particles.createMaxwellian({np.kind, np.n, v, {t, t, t}, np.tag});
   };
@@ -245,15 +245,8 @@ void add_background_fields(MfieldsState& mflds)
 
     int n_ghosts = mflds.ibn().max();
     grid.Foreach_3d(n_ghosts, n_ghosts, [&](int jx, int jy, int jz) {
-      Real3 h0;
-
       Double3 pos = centering::get_pos(patch, {jx, jy, jz}, centering::NC, 0);
-
-      if (pos[1] < 0.0) {
-        h0 = h0_upstream;
-      } else {
-        h0 = h0_downstream;
-      }
+      Real3 h0 = interpolate_across_shock(h0_upstream, h0_downstream, pos[1]);
 
       field_patch(HX, jx, jy, jz) += h0[0];
       field_patch(HY, jx, jy, jz) += h0[1];
