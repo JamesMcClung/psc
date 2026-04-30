@@ -59,6 +59,9 @@ double te_downstream;
 double ti_downstream;
 Real3 h0_downstream;
 
+double transition_half_width = 1.0;
+double transition_steepness = 2.0; // at least sqrt(3)~1.74
+
 Int3 gdims;
 Double3 lengths;
 Int3 n_patches;
@@ -168,7 +171,18 @@ void setupParameters(int argc, char** argv)
 template <typename T>
 T interpolate_across_shock(T upstream, T downstream, double y)
 {
-  return y > 0.0 ? downstream : upstream;
+  if (transition_half_width == 0.0) {
+    return y > 0.0 ? downstream : upstream;
+  } else {
+    // smooth transition function
+    y /= transition_half_width;
+    double sigmoid_val = abs(y) >= 1.0
+                           ? (y > 0.0 ? 1.0 : -1.0)
+                           : tanh(transition_steepness * y / (1.0 - y * y));
+    double weight_downstream = (sigmoid_val + 1.0) / 2.0;
+    double weight_upstream = 1.0 - weight_downstream;
+    return upstream * weight_upstream + downstream * weight_downstream;
+  }
 }
 
 // ======================================================================
