@@ -243,7 +243,7 @@ Grid_t* setupGrid()
     bnd_fld_upper = BND_FLD_CONDUCTING_WALL;
     bnd_prt_upper = BND_PRT_REFLECTING;
   } else if (shock_method == "relaxation") {
-    corner = {0.0, -lengths[1] / 2.0, 0.0};
+    corner = {0.0, -lengths[1] / 3.0, 0.0};
     bnd_fld_upper = BND_FLD_OPEN;
     bnd_prt_upper = BND_PRT_OPEN;
   }
