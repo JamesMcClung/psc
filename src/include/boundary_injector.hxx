@@ -130,8 +130,9 @@ public:
             psc::particle::Inject prt =
               particle_generator_.get(cell_corner, grid.domain.dx);
 
-            real_t du_from_e = inner_e * grid.dt * grid.kinds[prt.kind].q /
-                               grid.kinds[prt.kind].m;
+            // FIXME no factor of dt - why does this work? can it be better?
+            real_t du_from_e =
+              inner_e * grid.kinds[prt.kind].q / grid.kinds[prt.kind].m;
             prt.u[INJECT_DIM_IDX_] += du_from_e;
 
             AdvanceParticle<real_t, dim_y> advance{grid.dt};
@@ -183,8 +184,9 @@ public:
             psc::particle::Inject prt =
               particle_generator_.get(cell_corner, grid.domain.dx);
 
-            real_t du_from_e = inner_e * grid.dt * grid.kinds[prt.kind].q /
-                               grid.kinds[prt.kind].m;
+            // FIXME no factor of dt - why does this work? can it be better?
+            real_t du_from_e =
+              inner_e * grid.kinds[prt.kind].q / grid.kinds[prt.kind].m;
             prt.u[INJECT_DIM_IDX_] += du_from_e;
 
             AdvanceParticle<real_t, dim_y> advance{grid.dt};
