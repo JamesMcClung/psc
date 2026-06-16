@@ -136,10 +136,12 @@ public:
               continue;
             }
 
+            injector.inject_local(prt);
+
             Real3 final_normalized_pos = prt.x * dxi;
             Int3 final_idx = final_normalized_pos.fint();
-
-            injector.inject_local(prt);
+            // just needs to be enough to fully deposit normal current
+            initial_normalized_pos[1] = -0.75;
 
             real_t qni_wni = grid.kinds[prt.kind].q * prt.w;
             current.calc_j(J, initial_normalized_pos, final_normalized_pos,
@@ -182,6 +184,9 @@ public:
             }
 
             injector.inject_local(prt);
+
+            // just needs to be enough to fully deposit normal current
+            initial_normalized_pos[1] = grid.ldims[1] + 0.75;
 
             real_t qni_wni = grid.kinds[prt.kind].q * prt.w;
             current.calc_j(J, initial_normalized_pos, final_normalized_pos,
