@@ -118,7 +118,12 @@ struct VelocityBooster
     : frame_gamma(1.0 / std::sqrt(1.0 - frame_v.mag2())),
       frame_u(frame_v * frame_gamma),
       frame_dir(frame_v / frame_v.mag())
-  {}
+  {
+    // FIXME kind of hacky
+    if (frame_v.mag2() == 0.0) {
+      frame_dir = {1, 0, 0};
+    }
+  }
 
   /**
    * @param prt_v a particle's "unprimed" proper velocity
