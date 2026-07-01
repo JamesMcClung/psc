@@ -78,11 +78,13 @@ struct PushParticlesVb
           initial_index[2] = ip.cz.g.l;
         }
 
-        if (grid.atBoundaryLo(p, 1) && final_index[1] < 0) {
+        if (grid.bc.fld_lo[1] == BND_FLD_OPEN && grid.atBoundaryLo(p, 1) &&
+            final_index[1] < 0) {
           // FIXME OPT move these checks
           // just needs to be enough to fully deposit normal current
           final_pos_normalized[1] = -0.75;
-        } else if (grid.atBoundaryHi(p, 1) && final_index[1] >= grid.ldims[1]) {
+        } else if (grid.bc.fld_hi[1] == BND_FLD_OPEN &&
+                   grid.atBoundaryHi(p, 1) && final_index[1] >= grid.ldims[1]) {
           final_pos_normalized[1] = grid.ldims[1] + 0.75;
         }
 
