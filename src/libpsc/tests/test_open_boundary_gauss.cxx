@@ -6,6 +6,7 @@
 #include "output_fields.hxx"
 #include "../psc_config.hxx"
 #include "../psc_particle_injectors/dirichlet_boundary_injector.hxx"
+#include "../psc_particle_injectors/neumann_boundary_injector.hxx"
 
 // Separate from the injector tests: a binary with more than 4
 // integrators crashes at exit (notes/bug-many-integrators-crash.md).
@@ -111,6 +112,40 @@ TEST(DirichletBoundaryInjectorTest, GaussAtBoundaryNodeAfterInjection)
   psc.step();
 
   ASSERT_EQ(mprts.size(), 1);
+  EXPECT_LT(gauss_err_at_lo_node(mprts, mflds), 1e-10);
+}
+
+TEST(NeumannBoundaryInjectorTest, GaussAtBoundaryNodeAfterCopy)
+{
+  PscParams psc_params;
+  psc_params.nmax = 1;
+
+  auto grid_ptr = setupGrid();
+  auto& grid = *grid_ptr;
+  MfieldsState mflds{grid};
+  Mparticles mprts{grid};
+  Checks checks{grid, MPI_COMM_WORLD, ChecksParams{}};
+  Balance balance{.1};
+  Collision collision{grid, 0, 0.1};
+
+  auto psc = makePscIntegrator<PscConfig>(psc_params, grid, mflds, mprts,
+                                          balance, collision, checks);
+  psc.add_injector(
+    new NeumannBoundaryInjector<LoHi::Lo, PscConfig::PushParticles>{});
+
+  {
+    // a neutral pair; the ion moves from the edge cell inward, so a copy of it
+    // is injected that starts in the ghost cell, at y = -.1
+    auto injector = mprts.injector();
+    auto inj = injector[0];
+    inj({{.5, .9, .5}, {0, 0, 0}, 1, KIND_ELECTRON});
+    inj({{.5, .9, .5}, {0, 2, 0}, 1, KIND_ION});
+  }
+
+  psc.pre_first_step();
+  psc.step();
+
+  ASSERT_EQ(mprts.size(), 3);
   EXPECT_LT(gauss_err_at_lo_node(mprts, mflds), 1e-10);
 }
 
