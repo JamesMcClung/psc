@@ -220,7 +220,10 @@ public:
       auto dive = psc::mflds::interior(grid, psc::item::div_nc(grid, efield));
 
       Int3 res_ib = -grid.ibn;
+      // zero, since ghosts at domain boundaries aren't filled below; the
+      // upper boundary nodes are among them, so they're left uncorrected
       auto res = storage_type{psc::mflds::make_shape(grid, 1, res_ib)};
+      res.view(_all, _all, _all, _all, _all) = 0.0;
       psc::mflds::interior(grid, res) = dive - rho;
 
       // Gauss' law is ostensibly violated at conducting walls, whose surface
