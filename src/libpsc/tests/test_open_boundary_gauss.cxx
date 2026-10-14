@@ -147,6 +147,57 @@ TEST(NeumannBoundaryInjectorTest, GaussAtBoundaryNodeAfterCopy)
   EXPECT_LT(gauss_err_at_lo_node(mprts, mflds), 1e-10);
 }
 
+TEST(NeumannBoundaryInjectorTest, CopyAcrossPeriodicBoundary)
+{
+  // the ion moves inward and across the periodic z boundary in the same step,
+  // so its copy starts outside the patch in z, until particle exchange wraps
+  // it; injecting it must not move it
+  PscParams psc_params;
+  psc_params.nmax = 1;
+
+  auto grid_ptr = setupGrid();
+  auto& grid = *grid_ptr;
+  MfieldsState mflds{grid};
+  Mparticles mprts{grid};
+  ChecksParams checks_params{};
+  checks_params.continuity.check_interval = 1;
+  checks_params.gauss.check_interval = 1;
+  Checks checks{grid, MPI_COMM_WORLD, checks_params};
+  Balance balance{.1};
+  Collision collision{grid, 0, 0.1};
+
+  auto psc = makePscIntegrator<PscConfig>(psc_params, grid, mflds, mprts,
+                                          balance, collision, checks);
+  psc.add_injector(
+    new NeumannBoundaryInjector<LoHi::Lo, PscConfig::PushParticles>{});
+
+  {
+    auto injector = mprts.injector();
+    auto inj = injector[0];
+    inj({{.5, .9, .1}, {0, 0, 0}, 1, KIND_ELECTRON});
+    inj({{.5, .9, .1}, {0, 1, -1}, 1, KIND_ION});
+  }
+
+  psc.pre_first_step();
+  psc.step();
+
+  ASSERT_EQ(mprts.size(), 3);
+  EXPECT_LT(checks.continuity.last_max_err, checks.continuity.err_threshold);
+  EXPECT_LT(checks.gauss.last_max_err, checks.gauss.err_threshold);
+
+  // the copy is one cell behind the ion
+  auto accessor = mprts.accessor();
+  std::vector<Vec3<double>> ions;
+  for (auto prt : accessor[0]) {
+    if (prt.kind() == KIND_ION) {
+      ions.push_back(Vec3<double>(prt.x()));
+    }
+  }
+  ASSERT_EQ(ions.size(), 2);
+  EXPECT_NEAR(std::abs(ions[0][1] - ions[1][1]), 1., 1e-10);
+  EXPECT_NEAR(ions[0][2], ions[1][2], 1e-10);
+}
+
 // ======================================================================
 // main
 
