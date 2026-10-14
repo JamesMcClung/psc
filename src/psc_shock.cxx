@@ -89,6 +89,7 @@ std::string neumann_resample_method;
 
 PreaccelerateMethod preaccelerate_method;
 double preaccelerate_time_plasma_periods;
+double preaccelerate_ion_time_plasma_periods;
 bool preaccelerate_sample_boundary;
 
 int nicell;
@@ -249,6 +250,10 @@ void setupParameters(int argc, char** argv)
   if (injection_method == "dirichlet") {
     preaccelerate_time_plasma_periods = inputParams.getOrDefault<double>(
       "preaccelerate_time_plasma_periods", 0.5);
+    // ions may be kicked differently (in ion plasma periods); 0 disables
+    preaccelerate_ion_time_plasma_periods =
+      inputParams.getOrDefault<double>("preaccelerate_ion_time_plasma_periods",
+                                       preaccelerate_time_plasma_periods);
     std::string pre_method_str =
       inputParams.getOrDefault<std::string>("preaccelerate_method", "normal_e");
     preaccelerate_method =
@@ -1058,9 +1063,9 @@ static void run(int argc, char** argv)
     ion_injector_lo->preaccelerate_method = preaccelerate_method;
     ion_injector_lo->preaccelerate_sample_boundary =
       preaccelerate_sample_boundary;
-    ion_injector_lo->preaccelerate_time = preaccelerate_time_plasma_periods *
-                                          2.0 * M_PI /
-                                          std::sqrt(n_upstream / ion_mass);
+    ion_injector_lo->preaccelerate_time =
+      preaccelerate_ion_time_plasma_periods * 2.0 * M_PI /
+      std::sqrt(n_upstream / ion_mass);
 
     auto electron_injector_lo =
       new DirichletBoundaryInjector<LoHi::Lo, ParticleGeneratorMaxwellian,
@@ -1120,9 +1125,9 @@ static void run(int argc, char** argv)
       ion_injector_hi->preaccelerate_method = preaccelerate_method;
       ion_injector_hi->preaccelerate_sample_boundary =
         preaccelerate_sample_boundary;
-      ion_injector_hi->preaccelerate_time = preaccelerate_time_plasma_periods *
-                                            2.0 * M_PI /
-                                            std::sqrt(n_downstream / ion_mass);
+      ion_injector_hi->preaccelerate_time =
+        preaccelerate_ion_time_plasma_periods * 2.0 * M_PI /
+        std::sqrt(n_downstream / ion_mass);
 
       auto electron_injector_hi =
         new DirichletBoundaryInjector<LoHi::Hi, ParticleGeneratorMaxwellian,
