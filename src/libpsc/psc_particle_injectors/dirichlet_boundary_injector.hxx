@@ -61,6 +61,8 @@ public:
     return {x, u, w, kind_idx, tag};
   }
 
+  int kind() const { return kind_idx; }
+
 private:
   using VDF = rng::Normal<Real>;
   Vec3<VDF> vdfs;
@@ -75,7 +77,8 @@ private:
 /// @tparam LOHI whether to inject at the lower or upper boundary
 /// @tparam PARTICLE_GENERATOR a type that defines `get(min_pos, pos_range)` and
 /// returns an injectable particle within that range of positions (usually a
-/// grid cell); see @ref ParticleGeneratorMaxwellian
+/// grid cell), and `kind()`, the kind it generates; see
+/// @ref ParticleGeneratorMaxwellian
 /// @tparam PUSH_PARTICLES type that provides the types `Mparticles`,
 /// `MfieldsState`, `Current`, `real_t`, etc.
 template <LoHi LOHI, typename PARTICLE_GENERATOR, typename PUSH_PARTICLES>
@@ -115,6 +118,7 @@ public:
 
     const Grid_t& grid = mprts.grid();
     auto injectors_by_patch = mprts.injector();
+    auto accessor = mprts.accessor();
 
     Real3 dxi = grid.domain.dx_inv;
     Current current(grid);
@@ -130,6 +134,27 @@ public:
         typename InterpolateEM_t::fields_t EM(flds.storage(), flds.ib());
         InterpolateEM_t ip;
         AdvanceParticle<real_t, dim_y> advance{grid.dt};
+
+        // Outgoing particles sit in the ghost cell until they are deleted,
+        // after injection. Continue the current of those of this kind out to
+        // the outer ghost edge, so their virtual charge also lies beyond the
+        // boundary node.
+        for (auto prt : accessor[p]) {
+          if (prt.kind() != particle_generator_.kind()) {
+            continue;
+          }
+          Real3 pos = Real3(prt.x()) * dxi;
+          Int3 idx = pos.fint();
+          if (lo ? idx[INJECT_DIM_IDX_] >= 0
+                 : idx[INJECT_DIM_IDX_] < grid.ldims[INJECT_DIM_IDX_]) {
+            continue;
+          }
+          Real3 virtual_final_pos =
+            pos.with_component(INJECT_DIM_IDX_, outer_ghost_edge(grid));
+          Real3 no_v{0.f, 0.f, 0.f};
+          current.calc_j(J, pos, virtual_final_pos, idx, idx,
+                         real_t(prt.q() * prt.w()), no_v);
+        }
 
         Int3 start = Int3{0, 0, 0}.with_component(
           INJECT_DIM_IDX_, lo ? -1 : grid.ldims[INJECT_DIM_IDX_]);
