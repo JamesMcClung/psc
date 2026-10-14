@@ -7,6 +7,9 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <cstdint>
+#include <optional>
+#include <stdexcept>
 #include "mpi.h"
 
 namespace rng
@@ -17,12 +20,25 @@ namespace detail
 using Generator = std::default_random_engine;
 using GeneratorPtr = std::shared_ptr<Generator>;
 GeneratorPtr process_generator;
+std::optional<int> base_seed;
+
+// Without a base seed, keeps the historical per-rank seeds.
+int process_seed(int rank, std::optional<int> base)
+{
+  if (!base) {
+    return 10000 * (rank + 1);
+  }
+  std::seed_seq seq{static_cast<uint32_t>(*base), static_cast<uint32_t>(rank)};
+  uint32_t seed;
+  seq.generate(&seed, &seed + 1);
+  return seed & 0x7fffffff;
+}
 
 int get_process_seed()
 {
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  return 10000 * (rank + 1);
+  return process_seed(rank, base_seed);
 }
 
 GeneratorPtr get_process_generator()
@@ -40,6 +56,16 @@ GeneratorPtr get_constant_generator(int seed)
 }
 
 } // namespace detail
+
+// Seeds all per-process randomness. Must be called before the first draw.
+void set_base_seed(int seed)
+{
+  if (detail::process_generator) {
+    throw std::logic_error("rng::set_base_seed called after the process "
+                           "generator was used");
+  }
+  detail::base_seed = seed;
+}
 
 // ======================================================================
 // Uniform
