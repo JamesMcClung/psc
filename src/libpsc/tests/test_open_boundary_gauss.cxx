@@ -80,8 +80,6 @@ struct ParticleGeneratorAtDepth
     return {x, {0.0, uy, 0.0}, 1.0, kind_idx, 0};
   }
 
-  int kind() const { return kind_idx; }
-
   Real depth;
   int kind_idx;
   int max_n_injected;

@@ -97,8 +97,6 @@ struct ParticleGenerator
     return {x, u, w, kind_idx, tag};
   }
 
-  int kind() const { return kind_idx; }
-
   int n_injected = 0;
   int max_n_injected;
   int kind_idx;
