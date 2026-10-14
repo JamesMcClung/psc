@@ -7,7 +7,7 @@
 #include "../psc_config.hxx"
 #include "../psc_particle_injectors/dirichlet_boundary_injector.hxx"
 
-// Separate from test_dirichlet_boundary_injector: a binary with more than 4
+// Separate from the injector tests: a binary with more than 4
 // integrators crashes at exit (notes/bug-many-integrators-crash.md).
 
 using Dim = dim_yz;
