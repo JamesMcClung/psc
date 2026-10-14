@@ -89,6 +89,7 @@ std::string neumann_resample_method;
 
 PreaccelerateMethod preaccelerate_method;
 double preaccelerate_time_plasma_periods;
+bool preaccelerate_sample_boundary;
 
 int nicell;
 int seed;
@@ -255,6 +256,10 @@ void setupParameters(int argc, char** argv)
       : pre_method_str == "all_e"   ? PreaccelerateMethod::AllE
       : pre_method_str == "all_e_h" ? PreaccelerateMethod::AllEH
                                     : PreaccelerateMethod::None;
+    // "cell": at the edge cell's center; "boundary": at the boundary itself
+    preaccelerate_sample_boundary =
+      inputParams.getOrDefault<std::string>("preaccelerate_sample", "cell") ==
+      "boundary";
   }
 
   int n_writes = inputParams.getOrDefault<int>("n_writes", 100);
@@ -1051,6 +1056,8 @@ static void run(int argc, char** argv)
                                     {ti_upstream, ti_upstream, ti_upstream}),
         n_upstream);
     ion_injector_lo->preaccelerate_method = preaccelerate_method;
+    ion_injector_lo->preaccelerate_sample_boundary =
+      preaccelerate_sample_boundary;
     ion_injector_lo->preaccelerate_time = preaccelerate_time_plasma_periods *
                                           2.0 * M_PI /
                                           std::sqrt(n_upstream / ion_mass);
@@ -1063,6 +1070,8 @@ static void run(int argc, char** argv)
                                     {te_upstream, te_upstream, te_upstream}),
         n_upstream);
     electron_injector_lo->preaccelerate_method = preaccelerate_method;
+    electron_injector_lo->preaccelerate_sample_boundary =
+      preaccelerate_sample_boundary;
     electron_injector_lo->preaccelerate_time =
       preaccelerate_time_plasma_periods * 2.0 * M_PI /
       std::sqrt(n_upstream / electron_mass);
@@ -1109,6 +1118,8 @@ static void run(int argc, char** argv)
             {ti_downstream, ti_downstream, ti_downstream}),
           n_downstream);
       ion_injector_hi->preaccelerate_method = preaccelerate_method;
+      ion_injector_hi->preaccelerate_sample_boundary =
+        preaccelerate_sample_boundary;
       ion_injector_hi->preaccelerate_time = preaccelerate_time_plasma_periods *
                                             2.0 * M_PI /
                                             std::sqrt(n_downstream / ion_mass);
@@ -1121,6 +1132,8 @@ static void run(int argc, char** argv)
             {te_downstream, te_downstream, te_downstream}),
           n_downstream);
       electron_injector_hi->preaccelerate_method = preaccelerate_method;
+      electron_injector_hi->preaccelerate_sample_boundary =
+        preaccelerate_sample_boundary;
       electron_injector_hi->preaccelerate_time =
         preaccelerate_time_plasma_periods * 2.0 * M_PI /
         std::sqrt(n_downstream / electron_mass);
