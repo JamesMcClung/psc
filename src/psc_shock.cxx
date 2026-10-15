@@ -86,6 +86,7 @@ std::string turb_method;
 std::string shock_method;
 std::string injection_method;
 std::string neumann_resample_method;
+int neumann_copy_depth;
 
 PreaccelerateMethod preaccelerate_method;
 double preaccelerate_time_plasma_periods;
@@ -127,6 +128,8 @@ void setupParameters(int argc, char** argv)
     LOG_ERROR("unknown neumann_resample_method: %s\n",
               neumann_resample_method.c_str());
   }
+  // copy particles as they cross the face this many cells from the boundary
+  neumann_copy_depth = inputParams.getOrDefault<int>("neumann_copy_depth", 1);
 
   psc_params.stats_every =
     inputParams.getOrDefault<int>("stats_interval", 1000);
@@ -950,13 +953,15 @@ InjectorBase<Mparticles, MfieldsState>* makeNeumannInjector(const Grid_t& grid,
     temperatures[KIND_ION] = ti;
     return new NeumannBoundaryInjector<LOHI, PushParticles,
                                        NeumannResamplerMaxwellian>{
-      NeumannResamplerMaxwellian{grid.kinds, temperatures}};
+      NeumannResamplerMaxwellian{grid.kinds, temperatures}, neumann_copy_depth};
   } else if (neumann_resample_method == "rotate") {
     return new NeumannBoundaryInjector<LOHI, PushParticles,
-                                       NeumannResamplerRotate>{};
+                                       NeumannResamplerRotate>{
+      NeumannResamplerRotate{}, neumann_copy_depth};
   }
 
-  return new NeumannBoundaryInjector<LOHI, PushParticles>{};
+  return new NeumannBoundaryInjector<LOHI, PushParticles>{
+    NeumannResamplerNone{}, neumann_copy_depth};
 }
 
 // ======================================================================
