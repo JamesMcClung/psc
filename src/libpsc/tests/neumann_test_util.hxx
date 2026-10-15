@@ -48,10 +48,10 @@ Grid_t* setupGrid(double cfl)
 // For each (y, uy), places a stationary electron and a moving ion at the same
 // position (to satisfy Gauss' law at t=0), runs the simulation for `nmax` steps
 // with a NeumannBoundaryInjector at the given boundary, and returns the
-// final particles' y positions, sorted.
+// final particles' y positions, sorted. Copies are made at `copy_depth`.
 template <LoHi LOHI, typename Resampler = NeumannResamplerNone>
 std::vector<double> run(std::vector<std::pair<double, double>> ys_uys, int nmax,
-                        Resampler resampler = {})
+                        Resampler resampler = {}, int copy_depth = 1)
 {
   PscParams psc_params;
   psc_params.nmax = nmax;
@@ -76,7 +76,7 @@ std::vector<double> run(std::vector<std::pair<double, double>> ys_uys, int nmax,
                                           balance, collision, checks);
 
   NeumannBoundaryInjector<LOHI, PscConfig::PushParticles, Resampler> injector{
-    resampler};
+    resampler, copy_depth};
   psc.add_injector(&injector);
 
   {
