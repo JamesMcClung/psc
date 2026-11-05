@@ -11,6 +11,7 @@ endmacro(add_psc_executable)
 if(NOT USE_CUDA)
   add_psc_executable(psc_bgk)
   add_psc_executable(psc_shock)
+  add_psc_executable(psc_hammerhead)
   add_psc_executable(psc_pscpy_sample)
 endif()
 
@@ -24,7 +25,7 @@ add_psc_executable(psc_radiation)
 
 if(NOT USE_CUDA)
   install(
-    TARGETS psc_bgk psc_shock psc_pscpy_sample
+    TARGETS psc_bgk psc_shock psc_hammerhead psc_pscpy_sample
     RUNTIME DESTINATION bin
   )
 endif()
