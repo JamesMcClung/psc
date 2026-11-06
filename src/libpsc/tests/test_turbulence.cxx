@@ -69,6 +69,48 @@ double max_abs_h(MfieldsState& mflds)
   return max;
 }
 
+// max |div H| over the interior of patch 0, for x invariant
+double max_div_h(MfieldsState& mflds)
+{
+  const auto& grid = mflds.grid();
+  auto dx = grid.domain.dx;
+  auto f = make_Fields3d<dim_xyz>(mflds[0]);
+  double max_div = 0.0;
+  grid.Foreach_3d(0, 0, [&](int jx, int jy, int jz) {
+    double div = (f(HY, jx, jy + 1, jz) - f(HY, jx, jy, jz)) / dx[1] +
+                 (f(HZ, jx, jy, jz + 1) - f(HZ, jx, jy, jz)) / dx[2];
+    max_div = std::max(max_div, std::abs(div));
+  });
+  return max_div;
+}
+
+// max difference between H's ghosts and the interior a period away, on a
+// single-patch yz grid
+double max_periodic_diff(MfieldsState& mflds)
+{
+  const auto& grid = mflds.grid();
+  // the ghosts H is set in must match the interior a period away
+  Int3 ldims = grid.ldims;
+  auto f = make_Fields3d<dim_xyz>(mflds[0]);
+  double max_diff = 0.0;
+  for (int m = HX; m <= HZ; m++) {
+    for (int jz = 0; jz < ldims[2]; jz++) {
+      max_diff = std::max(
+        max_diff, std::abs(f(m, 0, -1, jz) - f(m, 0, ldims[1] - 1, jz)));
+      max_diff =
+        std::max(max_diff, std::abs(f(m, 0, ldims[1], jz) - f(m, 0, 0, jz)));
+    }
+    for (int jy = 0; jy < ldims[1]; jy++) {
+      max_diff = std::max(
+        max_diff, std::abs(f(m, 0, jy, -1) - f(m, 0, jy, ldims[2] - 1)));
+      max_diff =
+        std::max(max_diff, std::abs(f(m, 0, jy, ldims[2]) - f(m, 0, jy, 0)));
+    }
+  }
+
+  return max_diff;
+}
+
 template <typename T>
 struct TurbulenceTest : ::testing::Test
 {
@@ -76,8 +118,22 @@ struct TurbulenceTest : ::testing::Test
 
   void generate(MfieldsState& mflds, TurbulenceParams params = default_params)
   {
-    Generator{params}.generate(mflds);
+    Generator generator{params};
+    std::unique_ptr<Mfields> offset;
+    if (offset_rms > 0.0) {
+      offset.reset(new Mfields{mflds.grid(), 3, mflds.ibn()});
+      TurbulenceParams offset_params = params;
+      offset_params.seed += 100;
+      Generator offset_generator{offset_params};
+      generate_offset(offset_generator, *offset, offset_rms);
+      generator.offset = offset.get();
+    }
+    generator.generate(mflds);
   }
+
+  using Mfields = typename Generator::Mfields;
+  // if > 0, generate warps the turbulence by a turbulent offset this large
+  double offset_rms = 0.0;
 };
 
 using Generators = ::testing::Types<AlfvenTurbulence<MfieldsState>,
@@ -116,18 +172,7 @@ TYPED_TEST(TurbulenceTest, DivergenceFree)
   MfieldsState mflds{*grid};
   this->generate(mflds);
 
-  auto dx = grid->domain.dx;
-  auto f = make_Fields3d<dim_xyz>(mflds[0]);
-  double max_div = 0.0;
-  // x is invariant
-  grid->Foreach_3d(0, 0, [&](int jx, int jy, int jz) {
-    double div = (f(HY, jx, jy + 1, jz) - f(HY, jx, jy, jz)) / dx[1] +
-                 (f(HZ, jx, jy, jz + 1) - f(HZ, jx, jy, jz)) / dx[2];
-    max_div = std::max(max_div, std::abs(div));
-  });
-
-  double b_over_dx = max_abs_h(mflds) / dx[1];
-  EXPECT_LT(max_div, 1e-12 * b_over_dx);
+  EXPECT_LT(max_div_h(mflds), 1e-12 * max_abs_h(mflds) / grid->domain.dx[1]);
 }
 
 TYPED_TEST(TurbulenceTest, Periodic)
@@ -136,26 +181,7 @@ TYPED_TEST(TurbulenceTest, Periodic)
   MfieldsState mflds{*grid};
   this->generate(mflds);
 
-  // the ghosts H is set in must match the interior a period away
-  Int3 ldims = grid->ldims;
-  auto f = make_Fields3d<dim_xyz>(mflds[0]);
-  double max_diff = 0.0;
-  for (int m = HX; m <= HZ; m++) {
-    for (int jz = 0; jz < ldims[2]; jz++) {
-      max_diff = std::max(
-        max_diff, std::abs(f(m, 0, -1, jz) - f(m, 0, ldims[1] - 1, jz)));
-      max_diff =
-        std::max(max_diff, std::abs(f(m, 0, ldims[1], jz) - f(m, 0, 0, jz)));
-    }
-    for (int jy = 0; jy < ldims[1]; jy++) {
-      max_diff = std::max(
-        max_diff, std::abs(f(m, 0, jy, -1) - f(m, 0, jy, ldims[2] - 1)));
-      max_diff =
-        std::max(max_diff, std::abs(f(m, 0, jy, ldims[2]) - f(m, 0, jy, 0)));
-    }
-  }
-
-  EXPECT_LT(max_diff, 1e-10 * max_abs_h(mflds));
+  EXPECT_LT(max_periodic_diff(mflds), 1e-10 * max_abs_h(mflds));
 }
 
 TYPED_TEST(TurbulenceTest, IndependentOfDecomposition)
@@ -246,6 +272,141 @@ TYPED_TEST(TurbulenceTest, ShorterCorrelationLengthIsRougher)
   };
 
   EXPECT_GT(roughness(0.1), 1.5 * roughness(3.0));
+}
+
+// ----------------------------------------------------------------------
+// offsets
+
+TYPED_TEST(TurbulenceTest, ZeroOffsetChangesNothing)
+{
+  using Mfields = typename TestFixture::Mfields;
+  auto grid = setupGrid();
+  MfieldsState mflds_a{*grid};
+  this->generate(mflds_a);
+
+  MfieldsState mflds_b{*grid};
+  Mfields offset{*grid, 3, mflds_b.ibn()};
+  typename TestFixture::Generator generator{default_params};
+  generator.offset = &offset;
+  generator.generate(mflds_b);
+
+  EXPECT_EQ(gather_h(mflds_a), gather_h(mflds_b));
+}
+
+// sampling A one cell further along y everywhere shifts B by one cell
+TYPED_TEST(TurbulenceTest, UniformOffsetShifts)
+{
+  using Mfields = typename TestFixture::Mfields;
+  auto grid = setupGrid();
+  Int3 gdims = grid->domain.gdims;
+  MfieldsState mflds_a{*grid};
+  this->generate(mflds_a);
+
+  MfieldsState mflds_b{*grid};
+  Int3 ibn = mflds_b.ibn();
+  Mfields offset{*grid, 3, ibn};
+  for (Int3 i3 : VecRange(-ibn, grid->ldims + ibn)) {
+    offset(1, i3[0], i3[1], i3[2], 0) = grid->domain.dx[1];
+  }
+  typename TestFixture::Generator generator{default_params};
+  generator.offset = &offset;
+  generator.generate(mflds_b);
+
+  auto h_a = gather_h(mflds_a);
+  auto h_b = gather_h(mflds_b);
+  double max_diff = 0.0;
+  for (int m = 0; m < 3; m++) {
+    for (int jz = 0; jz < gdims[2]; jz++) {
+      for (int jy = 0; jy < gdims[1]; jy++) {
+        int idx_b = flatten_index(Int3{0, jy, jz}, gdims);
+        int idx_a = flatten_index(Int3{0, (jy + 1) % gdims[1], jz}, gdims);
+        max_diff = std::max(max_diff, std::abs(h_b[m][idx_b] - h_a[m][idx_a]));
+      }
+    }
+  }
+  EXPECT_LT(max_diff, 1e-10 * max_abs_h(mflds_a));
+}
+
+TYPED_TEST(TurbulenceTest, GenerateOffsetHasRms)
+{
+  using Mfields = typename TestFixture::Mfields;
+  auto grid = setupGrid();
+  Mfields offset{*grid, 3, grid->ibn};
+  typename TestFixture::Generator generator{default_params};
+  generate_offset(generator, offset, 0.3);
+
+  double sum = 0.0;
+  double max_x = 0.0;
+  grid->Foreach_3d(0, 0, [&](int jx, int jy, int jz) {
+    sum += sqr(offset(1, jx, jy, jz, 0)) + sqr(offset(2, jx, jy, jz, 0));
+    max_x = std::max(max_x, std::abs(double(offset(0, jx, jy, jz, 0))));
+  });
+  EXPECT_NEAR(std::sqrt(sum / grid->domain.gdims.prod()), 0.3, 1e-12);
+  // x is invariant
+  EXPECT_EQ(max_x, 0.0);
+}
+
+TYPED_TEST(TurbulenceTest, WarpedChangesField)
+{
+  auto grid = setupGrid();
+  MfieldsState mflds_a{*grid};
+  this->generate(mflds_a);
+  this->offset_rms = 0.3;
+  MfieldsState mflds_b{*grid};
+  this->generate(mflds_b);
+
+  auto h_a = gather_h(mflds_a);
+  auto h_b = gather_h(mflds_b);
+  double max_diff = 0.0;
+  for (int m = 0; m < 3; m++) {
+    for (int i = 0; i < h_a[m].size(); i++) {
+      max_diff = std::max(max_diff, std::abs(h_a[m][i] - h_b[m][i]));
+    }
+  }
+  EXPECT_GT(max_diff, 0.1 * max_abs_h(mflds_a));
+  EXPECT_NEAR(get_mean_b2(mflds_b), default_params.db2, 1e-12);
+}
+
+TYPED_TEST(TurbulenceTest, WarpedIsDivergenceFree)
+{
+  auto grid = setupGrid();
+  this->offset_rms = 0.3;
+  MfieldsState mflds{*grid};
+  this->generate(mflds);
+
+  EXPECT_LT(max_div_h(mflds), 1e-12 * max_abs_h(mflds) / grid->domain.dx[1]);
+}
+
+TYPED_TEST(TurbulenceTest, WarpedIsPeriodic)
+{
+  auto grid = setupGrid();
+  this->offset_rms = 0.3;
+  MfieldsState mflds{*grid};
+  this->generate(mflds);
+
+  EXPECT_LT(max_periodic_diff(mflds), 1e-10 * max_abs_h(mflds));
+}
+
+TYPED_TEST(TurbulenceTest, WarpedIsIndependentOfDecomposition)
+{
+  this->offset_rms = 0.3;
+  auto grid_1 = setupGrid({1, 1, 1});
+  MfieldsState mflds_1{*grid_1};
+  this->generate(mflds_1);
+
+  auto grid_4 = setupGrid({1, 2, 2});
+  MfieldsState mflds_4{*grid_4};
+  this->generate(mflds_4);
+
+  auto h_1 = gather_h(mflds_1);
+  auto h_4 = gather_h(mflds_4);
+  double max_diff = 0.0;
+  for (int m = 0; m < 3; m++) {
+    for (int i = 0; i < h_1[m].size(); i++) {
+      max_diff = std::max(max_diff, std::abs(h_1[m][i] - h_4[m][i]));
+    }
+  }
+  EXPECT_LT(max_diff, 1e-12 * max_abs_h(mflds_1));
 }
 
 #ifdef PSC_HAVE_ADIOS2
