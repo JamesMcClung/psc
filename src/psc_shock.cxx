@@ -85,6 +85,8 @@ double turb_correlation_length;
 // rms displacement of where the turbulence is sampled; 0 disables warping
 double turb_offset;
 double turb_offset_correlation_length;
+// noise_gabor only: 0 spaces the noise levels evenly in k, slower in big boxes
+double turb_levels_per_octave;
 
 int out_interval;
 int out_moments_interval;
@@ -297,6 +299,8 @@ void setupParameters(int argc, char** argv)
   turb_offset = inputParams.getOrDefault<double>("turb_offset", 0.0);
   turb_offset_correlation_length = inputParams.getOrDefault<double>(
     "turb_offset_L_c", turb_correlation_length);
+  turb_levels_per_octave =
+    inputParams.getOrDefault<double>("turb_levels_per_octave", 4.0);
 
   nicell = inputParams.getOrDefault<int>("nicell", 100);
   seed = inputParams.getOrDefault<int>("seed", 5);
@@ -471,7 +475,9 @@ void initialize_turbulence(MfieldsState& mflds)
     if (turb_method == "alfven_dense") {
       return new AlfvenTurbulence<MfieldsState>{params};
     } else if (turb_method == "noise_gabor") {
-      return new NoiseTurbulence<MfieldsState>{params};
+      auto noise = new NoiseTurbulence<MfieldsState>{params};
+      noise->levels_per_octave = turb_levels_per_octave;
+      return noise;
     }
     LOG_ERROR("Unrecognized turbulence method: %s\n", turb_method.c_str());
     return nullptr;
