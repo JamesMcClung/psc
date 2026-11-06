@@ -82,6 +82,9 @@ Int3 n_patches;
 
 double turb_db2;
 double turb_correlation_length;
+// rms displacement of where the turbulence is sampled; 0 disables warping
+double turb_offset;
+double turb_offset_correlation_length;
 
 int out_interval;
 int out_moments_interval;
@@ -291,6 +294,9 @@ void setupParameters(int argc, char** argv)
 
   turb_method =
     inputParams.getOrDefault<std::string>("turb_method", "alfven_dense");
+  turb_offset = inputParams.getOrDefault<double>("turb_offset", 0.0);
+  turb_offset_correlation_length = inputParams.getOrDefault<double>(
+    "turb_offset_L_c", turb_correlation_length);
 
   nicell = inputParams.getOrDefault<int>("nicell", 100);
   seed = inputParams.getOrDefault<int>("seed", 5);
@@ -460,15 +466,30 @@ void initialize_turbulence(MfieldsState& mflds)
   }
 
   using namespace psc::turbulence;
-  TurbulenceParams params{turb_db2, turb_correlation_length, seed};
-  std::unique_ptr<TurbulenceGenerator<MfieldsState>> generator;
-  if (turb_method == "alfven_dense") {
-    generator.reset(new AlfvenTurbulence<MfieldsState>{params});
-  } else if (turb_method == "noise_gabor") {
-    generator.reset(new NoiseTurbulence<MfieldsState>{params});
-  } else {
+  using Generator = TurbulenceGenerator<MfieldsState>;
+  auto make_generator = [](TurbulenceParams params) -> Generator* {
+    if (turb_method == "alfven_dense") {
+      return new AlfvenTurbulence<MfieldsState>{params};
+    } else if (turb_method == "noise_gabor") {
+      return new NoiseTurbulence<MfieldsState>{params};
+    }
     LOG_ERROR("Unrecognized turbulence method: %s\n", turb_method.c_str());
+    return nullptr;
+  };
+
+  std::unique_ptr<Generator> generator{
+    make_generator({turb_db2, turb_correlation_length, seed})};
+
+  // warp the turbulence by sampling it at turbulent offsets
+  std::unique_ptr<Generator::Mfields> offset;
+  if (turb_offset > 0.0) {
+    offset.reset(new Generator::Mfields{mflds.grid(), 3, mflds.ibn()});
+    std::unique_ptr<Generator> offset_generator{
+      make_generator({1.0, turb_offset_correlation_length, seed + 1})};
+    generate_offset(*offset_generator, *offset, turb_offset);
+    generator->offset = offset.get();
   }
+
   generator->generate(mflds);
 }
 
