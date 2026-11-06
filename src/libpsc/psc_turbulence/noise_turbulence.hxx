@@ -206,8 +206,10 @@ public:
         auto& patch = grid.patches[p];
 
         for (Int3 i3 : VecRange(-ibn, grid.ldims + ibn)) {
+          Double3 shift = get_offset(this->offset, p, i3);
           for (int m : {AX, AY, AZ}) {
-            Double3 pos_ec = centering::get_pos(patch, i3, centering::EC, m);
+            Double3 pos_ec =
+              centering::get_pos(patch, i3, centering::EC, m) + shift;
             vp_patch(m, i3[0], i3[1], i3[2]) =
               detail::sample_noise({m, i_level}, pos_ec / s, cell_extent,
                                    n_impulses, hyperdims, params.seed, kernel);

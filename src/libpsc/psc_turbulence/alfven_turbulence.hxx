@@ -14,11 +14,12 @@ namespace turbulence
 {
 
 /// adds to `vector_potential` the potential of a transverse plane wave with
-/// wavevector `k_vec` and amplitude `db` in B
+/// wavevector `k_vec` and amplitude `db` in B, sampled at positions displaced
+/// by `offset` (optional, see TurbulenceGenerator)
 template <typename Mfields>
 void add_plane_alfven_wave(Mfields& vector_potential, double db,
                            const Double3& k_vec, double polarization,
-                           double phase)
+                           double phase, const Mfields* offset = nullptr)
 {
   const auto& grid = vector_potential.grid();
 
@@ -52,10 +53,14 @@ void add_plane_alfven_wave(Mfields& vector_potential, double db,
     int n_ghosts = vector_potential.ibn().max();
     grid.Foreach_3d(n_ghosts, n_ghosts, [&](int jx, int jy, int jz) {
       Int3 index{jx, jy, jz};
+      Double3 shift = get_offset(offset, p, index);
 
-      Double3 pos_ec_x = centering::get_pos(patch, index, centering::EC, 0);
-      Double3 pos_ec_y = centering::get_pos(patch, index, centering::EC, 1);
-      Double3 pos_ec_z = centering::get_pos(patch, index, centering::EC, 2);
+      Double3 pos_ec_x =
+        centering::get_pos(patch, index, centering::EC, 0) + shift;
+      Double3 pos_ec_y =
+        centering::get_pos(patch, index, centering::EC, 1) + shift;
+      Double3 pos_ec_z =
+        centering::get_pos(patch, index, centering::EC, 2) + shift;
 
       double arg_x = k_vec.dot(pos_ec_x) + phase;
       double arg_y = k_vec.dot(pos_ec_y) + phase;
@@ -185,7 +190,8 @@ public:
       double phase = rng.get(0.0, 2.0 * M_PI);
       double polarization = rng.get(0.0, 2.0 * M_PI);
 
-      add_plane_alfven_wave(vector_potential, db, k_vec, polarization, phase);
+      add_plane_alfven_wave(vector_potential, db, k_vec, polarization, phase,
+                            this->offset);
     }
   }
 };
