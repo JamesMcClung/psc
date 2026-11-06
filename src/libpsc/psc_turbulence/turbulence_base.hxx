@@ -5,6 +5,7 @@
 #include "fields3d.hxx"
 #include "grid.hxx"
 #include "psc_bits.h"
+#include "kg/VecRange.hxx"
 
 #include <mpi.h>
 #include <cmath>
@@ -124,6 +125,19 @@ void set_b_from_potential(MfieldsState& mflds, Mfields& vector_potential)
   }
 }
 
+/// displacement stored in `offset` (3 components, one per dim) for cell `i3`
+/// of patch `p`; 0 if there is no offset
+template <typename Mfields>
+Double3 get_offset(const Mfields* offset, int p, Int3 i3)
+{
+  if (!offset) {
+    return {0.0, 0.0, 0.0};
+  }
+  return {double((*offset)(0, i3[0], i3[1], i3[2], p)),
+          double((*offset)(1, i3[0], i3[1], i3[2], p)),
+          double((*offset)(2, i3[0], i3[1], i3[2], p))};
+}
+
 /// @brief Generates magnetic turbulence in an MfieldsState.
 ///
 /// `generate` overwrites H (interior and ghosts) with a divergence-free random
@@ -134,6 +148,12 @@ void set_b_from_potential(MfieldsState& mflds, Mfields& vector_potential)
 /// Subclasses implement `generate_potential`, which sets the edge-centered
 /// vector potential A, interior and ghosts, up to normalization; `generate`
 /// takes its curl and normalizes it.
+///
+/// If `offset` is set, A's components in cell i3 are sampled at their usual
+/// positions plus `offset`'s value in that cell, which warps the field. B is
+/// still curl A, so it stays divergence-free. A smooth, periodic offset, e.g.
+/// from `generate_offset`, keeps B smooth and periodic, and turns eddies into
+/// swirls and filaments.
 template <typename MfieldsState>
 class TurbulenceGenerator
 {
@@ -155,7 +175,49 @@ public:
   virtual void generate_potential(Mfields& vector_potential) = 0;
 
   TurbulenceParams params;
+  /// optional; needs 3 components and the same ghosts as the fields being
+  /// generated, and must outlive `generate`. Not owned.
+  const Mfields* offset = nullptr;
 };
+
+/// @brief Fills `offset` (3 components, zero-initialized, with ghosts) with
+/// `generator`'s vector potential, scaled so the rms displacement over the
+/// domain's cells is `rms`. Components along invariant dims are set to 0.
+///
+/// The potential is used, not B, because it is set in all ghosts. Its spectrum
+/// is B's divided by k^2, so the displacement is dominated by scales near the
+/// generator's correlation length.
+template <typename MfieldsState>
+void generate_offset(
+  TurbulenceGenerator<MfieldsState>& generator,
+  typename TurbulenceGenerator<MfieldsState>::Mfields& offset, double rms)
+{
+  const auto& grid = offset.grid();
+  Int3 ibn = offset.ibn();
+  generator.generate_potential(offset);
+
+  double sum_local = 0.0;
+  for (int p = 0; p < offset.n_patches(); ++p) {
+    grid.Foreach_3d(0, 0, [&](int jx, int jy, int jz) {
+      for (int d = 0; d < 3; d++) {
+        if (!grid.isInvar(d)) {
+          sum_local += sqr(offset(d, jx, jy, jz, p));
+        }
+      }
+    });
+  }
+  double sum = 0.0;
+  MPI_Allreduce(&sum_local, &sum, 1, MPI_DOUBLE, MPI_SUM, grid.comm());
+  double scale = rms / std::sqrt(sum / grid.domain.gdims.prod());
+
+  for (int p = 0; p < offset.n_patches(); ++p) {
+    for (Int3 i3 : VecRange(-ibn, grid.ldims + ibn)) {
+      for (int d = 0; d < 3; d++) {
+        offset(d, i3[0], i3[1], i3[2], p) *= grid.isInvar(d) ? 0.0 : scale;
+      }
+    }
+  }
+}
 
 } // namespace turbulence
 } // namespace psc
