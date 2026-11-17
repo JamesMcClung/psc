@@ -35,8 +35,13 @@ struct Grid_
   {
     Patch() {}
 
-    Patch(const Int3& _off, const Real3& _xb, const Real3& _xe, const Real3& dx)
-      : off(_off), xb(_xb), xe(_xe), dx_(dx)
+    Patch(const Int3& _off, const Real3& _xb, const Real3& _xe, const Real3& dx,
+          const Real3& _size)
+      : off(_off),
+        xb(_xb),
+        xe(_xe),
+        dx_(dx),
+        size(_size) // pass size separately to avoid roundoff error
     {}
 
     real_t x_nc(int i) const { return xb[0] + i * dx_[0]; }
@@ -55,6 +60,7 @@ struct Grid_
     Int3 off;
     Real3 xb;
     Real3 xe;
+    Real3 size;
 
   private:
     Real3 dx_;
@@ -82,9 +88,9 @@ struct Grid_
 #endif
 
     for (auto off : mrc_domain_.offs()) {
-      patches.push_back(Patch(
-        off, Vec3<double>(off) * domain.dx + domain.corner,
-        Vec3<double>(off + ldims) * domain.dx + domain.corner, domain.dx));
+      patches.push_back(Patch(off, Double3(off) * domain.dx + domain.corner,
+                              Double3(off + ldims) * domain.dx + domain.corner,
+                              domain.dx, Double3(ldims) * domain.dx));
     }
 
     for (int d = 0; d < 3; d++) {

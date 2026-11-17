@@ -224,11 +224,12 @@ public:
     reader.get<VariableByPatch>("xe", patches_xe, grid, launch);
 
     reader.performGets(); // need to actually read the temp local vars
+    // patches added by the resize above are default-constructed, so set every
+    // member, not just the ones that were read
     for (int p = 0; p < patches_n_local; p++) {
-      auto& patch = grid.patches[p];
-      patch.off = patches_off[p];
-      patch.xb = patches_xb[p];
-      patch.xe = patches_xe[p];
+      grid.patches[p] = typename Grid::Patch(
+        patches_off[p], patches_xb[p], patches_xe[p], grid.domain.dx,
+        Real3(grid.ldims) * grid.domain.dx);
     }
 
     reader.get("kinds", grid.kinds, launch);
