@@ -99,7 +99,7 @@ void BndParticlesCommon<MP>::process_patch(const Grid_t& grid,
 
   const Int3& ldims = grid.ldims;
   const auto& gpatch = grid.patches[p];
-  Real3 patch_size = Real3(gpatch.xe - gpatch.xb);
+  Real3 patch_size = Real3(gpatch.size);
 
   auto* dpatch = &ddcp->patches_[p];
   for (int dir1 = 0; dir1 < N_DIR; dir1++) {
