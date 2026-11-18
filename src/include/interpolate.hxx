@@ -240,6 +240,50 @@ struct InterpolateEM_Helper<F, IP, opt_ip_1st_ec, dim_xz>
 };
 
 // ----------------------------------------------------------------------
+// InterpolateEM_Helper: 1st EC, dim_y
+//
+// dim_yz with the z direction dropped
+
+template <typename F, typename IP>
+struct InterpolateEM_Helper<F, IP, opt_ip_1st_ec, dim_y>
+{
+  using real_t = typename F::value_type;
+
+  __host__ __device__ static real_t ex(const IP& ip, const F& EM)
+  {
+    return (ip.cy.g.v0 * EM(EX, 0, ip.cy.g.l, 0) +
+            ip.cy.g.v1 * EM(EX, 0, ip.cy.g.l + 1, 0));
+  }
+
+  __host__ __device__ static real_t ey(const IP& ip, const F& EM)
+  {
+    return EM(EY, 0, ip.cy.g.l, 0);
+  }
+
+  __host__ __device__ static real_t ez(const IP& ip, const F& EM)
+  {
+    return (ip.cy.g.v0 * EM(EZ, 0, ip.cy.g.l, 0) +
+            ip.cy.g.v1 * EM(EZ, 0, ip.cy.g.l + 1, 0));
+  }
+
+  __host__ __device__ static real_t hx(const IP& ip, const F& EM)
+  {
+    return EM(HX, 0, ip.cy.g.l, 0);
+  }
+
+  __host__ __device__ static real_t hy(const IP& ip, const F& EM)
+  {
+    return (ip.cy.g.v0 * EM(HY, 0, ip.cy.g.l, 0) +
+            ip.cy.g.v1 * EM(HY, 0, ip.cy.g.l + 1, 0));
+  }
+
+  __host__ __device__ static real_t hz(const IP& ip, const F& EM)
+  {
+    return EM(HZ, 0, ip.cy.g.l, 0);
+  }
+};
+
+// ----------------------------------------------------------------------
 // InterpolateEM_Helper: 1st EC, dim_yz
 
 template <typename F, typename IP>
@@ -328,6 +372,48 @@ struct InterpolateEM_Helper<F, IP, opt_ip_1st, dim_xz>
     return cc(ip.cx.h, ip.cy.g, ip.cz.h, EM, HY);
   }
   static real_t hz(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.h, ip.cy.h, ip.cz.g, EM, HZ);
+  }
+};
+
+// ----------------------------------------------------------------------
+// InterpolateEM_Helper: 1st std, dim_y
+
+template <typename F, typename IP>
+struct InterpolateEM_Helper<F, IP, opt_ip_1st, dim_y>
+{
+  using real_t = typename F::value_type;
+  using ip_coeff_t = typename IP::ip_coeff_t;
+
+  __host__ __device__ static real_t cc(const ip_coeff_t& gx,
+                                       const ip_coeff_t& gy,
+                                       const ip_coeff_t& gz, const F& EM, int m)
+  {
+    return gy.v0 * EM(m, 0, gy.l, 0) + gy.v1 * EM(m, 0, gy.l + 1, 0);
+  }
+
+  __host__ __device__ static real_t ex(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.h, ip.cy.g, ip.cz.g, EM, EX);
+  }
+  __host__ __device__ static real_t ey(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.g, ip.cy.h, ip.cz.g, EM, EY);
+  }
+  __host__ __device__ static real_t ez(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.g, ip.cy.g, ip.cz.h, EM, EZ);
+  }
+  __host__ __device__ static real_t hx(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.g, ip.cy.h, ip.cz.h, EM, HX);
+  }
+  __host__ __device__ static real_t hy(const IP& ip, const F& EM)
+  {
+    return cc(ip.cx.h, ip.cy.g, ip.cz.h, EM, HY);
+  }
+  __host__ __device__ static real_t hz(const IP& ip, const F& EM)
   {
     return cc(ip.cx.h, ip.cy.h, ip.cz.g, EM, HZ);
   }
