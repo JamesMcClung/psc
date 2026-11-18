@@ -62,6 +62,23 @@ public:
 
   GT_INLINE void operator()(Curr& curr, const Int3& i, real_t qni_wni,
                             const Real3& dx, const Real3& xa,
+                            dim_y tag_dim) const
+  {
+    Real3 fnq = qni_wni * fnqs_;
+
+    // clang-format off
+    curr.add(0, i[0],     i[1],     i[2],     fnq[0] * (dx[0] * (1.f - xa[1])));
+    curr.add(0, i[0],     i[1] + 1, i[2],     fnq[0] * (dx[0] * (      xa[1])));
+
+    curr.add(1, i[0],     i[1],     i[2],     fnq[1] * (dx[1]                ));
+
+    curr.add(2, i[0],     i[1],     i[2],     fnq[2] * (dx[2] * (1.f - xa[1])));
+    curr.add(2, i[0],     i[1] + 1, i[2],     fnq[2] * (dx[2] * (      xa[1])));
+    // clang-format on
+  }
+
+  GT_INLINE void operator()(Curr& curr, const Int3& i, real_t qni_wni,
+                            const Real3& dx, const Real3& xa,
                             dim_yz tag_dim) const
   {
     real_t h = (1.f / real_t(12.f)) * dx.prod();
