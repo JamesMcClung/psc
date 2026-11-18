@@ -32,6 +32,18 @@ struct Current1vbSplit
     deposition_(curr_cache, i, qni_wni, dx, xa, Dim{});
   }
 
+  // The cell a segment from xm to xp starts in, along one dim. A start on a
+  // face is in the cell above it, unless the segment moves down, e.g., a
+  // particle injected from the outer face of an upper ghost cell.
+  static int start_cell(real_t xm, real_t xp)
+  {
+    int i = fint(xm);
+    if (xp < xm && xm == real_t(i)) {
+      i--;
+    }
+    return i;
+  }
+
   static Real3 calc_split_x1(int dim, int im, int ip, const Real3& xm,
                              const Real3& xp)
   {
@@ -56,7 +68,7 @@ struct Current1vbSplit
                            const Real3& xp)
   {
     constexpr int dim = 0;
-    int im = fint(xm[dim]);
+    int im = start_cell(xm[dim], xp[dim]);
     int ip = fint(xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_one_cell(curr_cache, qni_wni, xm, xp);
@@ -71,7 +83,7 @@ struct Current1vbSplit
                            const Real3& xp)
   {
     constexpr int dim = 1;
-    int im = fint(xm[dim]);
+    int im = start_cell(xm[dim], xp[dim]);
     int ip = fint(xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_split_dim_x(curr_cache, qni_wni, xm, xp);
@@ -86,7 +98,7 @@ struct Current1vbSplit
                            const Real3& xp)
   {
     constexpr int dim = 2;
-    int im = fint(xm[dim]);
+    int im = start_cell(xm[dim], xp[dim]);
     int ip = fint(xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_split_dim_y(curr_cache, qni_wni, xm, xp);
