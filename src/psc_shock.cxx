@@ -201,8 +201,8 @@ void setupParameters(int argc, char** argv)
     double MA_sq =
       v_upstream.mag2() * ion_mass * n_upstream / h0_upstream.mag2();
 
-    double tmp = 1.0 + (1.0 + 2.5 * beta1) * B1.mag2();
-    double r = 8.0 / (tmp + sqrt(sqr(tmp) + 2 * B1.mag2()));
+    double tmp = 1.0 + 2.5 * (1.0 + beta1) * B1.mag2();
+    double r = 8.0 / (tmp + sqrt(sqr(tmp) + 8.0 * B1.mag2()));
 
     double heating_factor =
       1.0 +
