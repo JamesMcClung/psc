@@ -68,9 +68,12 @@ Real3 e0; // e0 is constant
 // standing shock params
 double n_downstream;
 Double3 v_downstream;
-double te_downstream;
-double ti_downstream;
+// diagonal temperature tensors
+Double3 te_downstream;
+Double3 ti_downstream;
 Real3 h0_downstream;
+// true: T_par isn't changed by the shock, as in double-adiabatic theory
+bool conserve_tpar;
 // true: downstream te = ti; false: each species is heated in proportion to its
 // mass
 bool mass_equilibrate;
@@ -171,7 +174,8 @@ void setupParameters(int argc, char** argv)
   double b0 = inputParams.get<double>("B_0");
 
   double theta_bn = theta_bn_deg * M_PI / 180.0;
-  double theta_xz = inputParams.get<double>("θ_xz_deg") * M_PI / 180.0;
+  double theta_xz_deg = inputParams.get<double>("θ_xz_deg");
+  double theta_xz = theta_xz_deg * M_PI / 180.0;
   h0_upstream = Real3{sin(theta_bn) * cos(theta_xz), cos(theta_bn),
                       sin(theta_bn) * sin(theta_xz)} *
                 b0;
@@ -204,12 +208,33 @@ void setupParameters(int argc, char** argv)
     double MA_sq =
       v_upstream.mag2() * ion_mass * n_upstream / h0_upstream.mag2();
 
-    double tmp = 1.0 + 2.5 * (1.0 + beta1) * B1.mag2();
-    double r = 8.0 / (tmp + sqrt(sqr(tmp) + 8.0 * B1.mag2()));
+    conserve_tpar = inputParams.getOrDefault("conserve_tpar", false);
 
-    double heating_factor =
-      1.0 +
-      4.0 / (5.0 * T1) * ((sqr(r) - 1.0) / (2.0 * sqr(r)) + (1.0 - r) / MA_sq);
+    // with conserve_tpar, the factor applies to T_perp only
+    double r, heating_factor;
+    if (conserve_tpar) {
+      // B lies along x or z, so the temperature tensor stays diagonal
+      if (theta_xz_deg != 0.0 && theta_xz_deg != 90.0) {
+        LOG_ERROR("θ_xz must be 0° or 90° for conserve_tpar; got %f°\n",
+                  theta_xz_deg);
+      }
+
+      // With B tangential, the momentum flux has p_perp and the enthalpy flux
+      // has 2 p_perp + p_par / 2 (2022 Gedalin eqs.11-12, 1970 Hudson
+      // eqs.20-21). With p_par2 = r p1, the jump conditions reduce to a
+      // quadratic in r with roots 1 and the one below.
+      double P1 = 0.5 * T1; // p1 / (rho1 v1^2)
+      r = 3.0 / (1.0 + 4.0 * P1 + 2.0 * B1.mag2());
+      double P_perp2 = P1 + (1.0 - 1.0 / r) + 0.5 * B1.mag2() * (1.0 - sqr(r));
+      heating_factor = P_perp2 / (r * P1);
+    } else {
+      double tmp = 1.0 + 2.5 * (1.0 + beta1) * B1.mag2();
+      r = 8.0 / (tmp + sqrt(sqr(tmp) + 8.0 * B1.mag2()));
+
+      heating_factor =
+        1.0 + 4.0 / (5.0 * T1) *
+                ((sqr(r) - 1.0) / (2.0 * sqr(r)) + (1.0 - r) / MA_sq);
+    }
 
     n_downstream = n_upstream * r;
     v_downstream = v_upstream / r;
@@ -219,13 +244,22 @@ void setupParameters(int argc, char** argv)
     double t_sum_upstream = te_upstream + ti_upstream;
     double heating = t_sum_upstream * (heating_factor - 1.0);
     mass_equilibrate = inputParams.getOrDefault("mass_equilibrate", true);
+    double te, ti;
     if (mass_equilibrate) {
-      te_downstream = ti_downstream = 0.5 * (t_sum_upstream + heating);
+      te = ti = 0.5 * (t_sum_upstream + heating);
     } else {
       // strong-shock limit: T_s = 3/16 m_s v_upstream^2
       double mass_sum = electron_mass + ion_mass;
-      te_downstream = te_upstream + heating * electron_mass / mass_sum;
-      ti_downstream = ti_upstream + heating * ion_mass / mass_sum;
+      te = te_upstream + heating * electron_mass / mass_sum;
+      ti = ti_upstream + heating * ion_mass / mass_sum;
+    }
+    te_downstream = {te, te, te};
+    ti_downstream = {ti, ti, ti};
+
+    if (conserve_tpar) {
+      int par = theta_xz_deg == 0.0 ? 0 : 2;
+      te_downstream[par] = te_upstream;
+      ti_downstream[par] = ti_upstream;
     }
   }
 
@@ -233,8 +267,8 @@ void setupParameters(int argc, char** argv)
     n_downstream = n_upstream;
     v_downstream = v_upstream;
     h0_downstream = h0_upstream;
-    te_downstream = te_upstream;
-    ti_downstream = ti_upstream;
+    te_downstream = {te_upstream, te_upstream, te_upstream};
+    ti_downstream = {ti_upstream, ti_upstream, ti_upstream};
   }
 
   gdims[0] = inputParams.get<int>("nx");
@@ -311,6 +345,11 @@ void setupParameters(int argc, char** argv)
         neumann_resample_method != "rotate") {
       LOG_ERROR("unknown neumann_resample_method: %s\n",
                 neumann_resample_method.c_str());
+    }
+    if (conserve_tpar && injection_method_downstream == "neumann" &&
+        neumann_resample_method == "maxwellian") {
+      LOG_ERROR("neumann_resample_method=maxwellian is isotropic, which is "
+                "incompatible with conserve_tpar\n");
     }
 
     // copy particles as they cross the face this many cells from the boundary
@@ -469,13 +508,19 @@ void initializeParticles(Balance& balance, Grid_t*& grid_ptr, Mparticles& mprts)
     auto init_np = [&](int kind, Double3 pos, int p, Int3 idx,
                        psc_particle_np& np) {
       np.n = interpolate_across_shock(n_upstream, n_downstream, pos[1]);
-      // interpolate v_thermal, not T itself
-      double t = sqr(interpolate_across_shock(
-        sqrt(np.kind == KIND_ION ? ti_upstream : te_upstream),
-        sqrt(np.kind == KIND_ION ? ti_downstream : te_downstream), pos[1]));
+      double t_upstream = np.kind == KIND_ION ? ti_upstream : te_upstream;
+      Double3 t_downstream =
+        np.kind == KIND_ION ? ti_downstream : te_downstream;
+
+      Double3 t;
+      for (int d = 0; d < 3; d++) {
+        // interpolate v_thermal, not T itself
+        t[d] = sqr(interpolate_across_shock(sqrt(t_upstream),
+                                            sqrt(t_downstream[d]), pos[1]));
+      }
+
       Double3 v = interpolate_across_shock(v_upstream, v_downstream, pos[1]);
-      np.p =
-        setup_particles.createMaxwellian({np.kind, np.n, v, {t, t, t}, np.tag});
+      np.p = setup_particles.createMaxwellian({np.kind, np.n, v, t, np.tag});
     };
 
     partitionAndSetupParticles(setup_particles, balance, grid_ptr, mprts,
@@ -648,17 +693,17 @@ InjectorBase<Mparticles, MfieldsState>* makeNeumannInjector(const Grid_t& grid,
 // ======================================================================
 // makeDirichletInjector
 
-// injects one species, Maxwellian with temperature `t` drifting at `v`, at
-// density `n`, through the given y boundary; preacceleration time is given in
-// plasma periods of that species
+// injects one species, Maxwellian with diagonal temperature `t` drifting at
+// `v`, at density `n`, through the given y boundary; preacceleration time is
+// given in plasma periods of that species
 InjectorBase<Mparticles, MfieldsState>* makeDirichletInjector(
-  const Grid_t& grid, LoHi lohi, int kind, double n, Double3 v, double t,
+  const Grid_t& grid, LoHi lohi, int kind, double n, Double3 v, Double3 t,
   double mass, double preaccelerate_plasma_periods)
 {
   auto injector = new DirichletBoundaryInjector<ParticleGeneratorMaxwellian,
                                                 PscConfig::PushParticles>(
-    ParticleGeneratorMaxwellian(kind, grid.kinds[kind], v, {t, t, t}),
-    psc::Axis::Y, lohi, n);
+    ParticleGeneratorMaxwellian(kind, grid.kinds[kind], v, t), psc::Axis::Y,
+    lohi, n);
   injector->preaccelerate_method = preaccelerate_method;
   injector->preaccelerate_sample_boundary = preaccelerate_sample_boundary;
   injector->preaccelerate_time =
@@ -771,12 +816,14 @@ static void run(int argc, char** argv)
   using ConstantPulse = psc::bnd::field::ConstantPulse<real_t>;
 
   if (injection_method_upstream == "dirichlet") {
-    psc.add_injector(makeDirichletInjector(
-      mprts.grid(), LoHi::Lo, KIND_ION, n_upstream, v_upstream, ti_upstream,
-      ion_mass, preaccelerate_ion_time_plasma_periods));
-    psc.add_injector(makeDirichletInjector(
-      mprts.grid(), LoHi::Lo, KIND_ELECTRON, n_upstream, v_upstream,
-      te_upstream, electron_mass, preaccelerate_time_plasma_periods));
+    psc.add_injector(
+      makeDirichletInjector(mprts.grid(), LoHi::Lo, KIND_ION, n_upstream,
+                            v_upstream, {ti_upstream, ti_upstream, ti_upstream},
+                            ion_mass, preaccelerate_ion_time_plasma_periods));
+    psc.add_injector(
+      makeDirichletInjector(mprts.grid(), LoHi::Lo, KIND_ELECTRON, n_upstream,
+                            v_upstream, {te_upstream, te_upstream, te_upstream},
+                            electron_mass, preaccelerate_time_plasma_periods));
   } else if (injection_method_upstream == "neumann") {
     psc.add_injector(
       makeNeumannInjector(mprts.grid(), LoHi::Lo, te_upstream, ti_upstream));
@@ -819,8 +866,9 @@ static void run(int argc, char** argv)
         mprts.grid(), LoHi::Hi, KIND_ELECTRON, n_downstream, v_downstream,
         te_downstream, electron_mass, preaccelerate_time_plasma_periods));
     } else if (injection_method_downstream == "neumann") {
+      // only isotropic with Maxwellian resampling, which excludes conserve_tpar
       psc.add_injector(makeNeumannInjector(mprts.grid(), LoHi::Hi,
-                                           te_downstream, ti_downstream));
+                                           te_downstream[1], ti_downstream[1]));
     }
 
     auto radiating_hi = new RadiatingBC<ConstantPulse>(
