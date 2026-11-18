@@ -475,8 +475,8 @@ TEST(KernelPowerSpectrumTest, SatisfiesParseval)
   for (int n_dims = 1; n_dims <= 3; n_dims++) {
     auto weight = [&](double x) { return std::pow(x, n_dims - 1); };
     double k_space = psc::turbulence::detail::integrate(
-      [&](double q) { return power(q, n_dims) * weight(q); }, 0.0,
-      power.q_max, 1024);
+      [&](double q) { return power(q, n_dims) * weight(q); }, 0.0, power.q_max,
+      1024);
     double x_space = psc::turbulence::detail::integrate(
       [&](double r) { return sqr(GaborKernel::window(r * r)) * weight(r); },
       0.0, 1.0, 1024);
@@ -496,8 +496,9 @@ TEST(LevelSpectraTest, FitMatchesTarget)
   for (double x : xs) {
     radii.push_back(length[1] / x);
   }
-  auto spectra = psc::turbulence::detail::get_level_spectra<
-    psc::turbulence::GaborKernel>(radii, length, gdims, correlation_length);
+  auto spectra =
+    psc::turbulence::detail::get_level_spectra<psc::turbulence::GaborKernel>(
+      radii, length, gdims, correlation_length);
   EXPECT_EQ(spectra.n_fit, 64);
 
   for (int i = 0; i < xs.size(); i++) {
@@ -528,8 +529,8 @@ TEST(LevelSpectraTest, FitMatchesTarget)
       }
       return sum;
     };
-    double norm = get_band(&w, 8, spectra.n_fit) /
-                  get_band(nullptr, 8, spectra.n_fit);
+    double norm =
+      get_band(&w, 8, spectra.n_fit) / get_band(nullptr, 8, spectra.n_fit);
     double max_error = 0.0;
     for (int lo = 8; lo < spectra.n_fit; lo = std::ceil(1.6 * lo)) {
       int hi = std::min(int(std::ceil(1.6 * lo)), spectra.n_fit);
@@ -597,6 +598,33 @@ TEST(TurbulenceIOTest, ReadOnOtherDecomposition)
 }
 
 #endif
+
+// get_mean_b2 of a uniform H is |H|^2, also for grids without ghosts along
+// invariant dims
+double mean_b2_of_uniform_h(Int3 gdims, Int3 ibn)
+{
+  auto domain = Grid_t::Domain{gdims, Double3(gdims) * 0.1};
+  auto norm =
+    Grid_t::Normalization{Grid_t::NormalizationParams::dimensionless()};
+  Grid_t grid{domain, {}, {}, norm, 0.05, -1, ibn};
+  MfieldsState mflds{grid};
+  // anything get_mean_b2 reads beyond H's own storage shows up
+  mflds.storage().view() = 7.;
+  mflds.storage().view(_all, _all, _all, HX) = 1.;
+  mflds.storage().view(_all, _all, _all, HY) = 2.;
+  mflds.storage().view(_all, _all, _all, HZ) = 3.;
+  return get_mean_b2(mflds);
+}
+
+TEST(MeanB2Test, UniformDimY)
+{
+  EXPECT_NEAR(mean_b2_of_uniform_h({1, 16, 1}, {0, 2, 0}), 14., 1e-12);
+}
+
+TEST(MeanB2Test, UniformDimYZ)
+{
+  EXPECT_NEAR(mean_b2_of_uniform_h({1, 16, 8}, {0, 2, 2}), 14., 1e-12);
+}
 
 int main(int argc, char** argv)
 {
