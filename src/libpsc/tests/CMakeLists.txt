@@ -50,6 +50,7 @@ add_psc_test(test_collision)
 add_psc_test(test_rng)
 add_psc_test(test_turbulence)
 add_psc_test(test_advecting)
+add_psc_test(test_interpolate)
 
 if(USE_CUDA)
   add_psc_test(test_collision_cuda)
