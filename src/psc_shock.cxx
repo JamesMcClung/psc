@@ -71,6 +71,9 @@ Double3 v_downstream;
 double te_downstream;
 double ti_downstream;
 Real3 h0_downstream;
+// true: downstream te = ti; false: each species is heated in proportion to its
+// mass
+bool mass_equilibrate;
 
 double transition_half_width;
 double transition_steepness = 2.0; // at least sqrt(3)~1.74
@@ -212,8 +215,18 @@ void setupParameters(int argc, char** argv)
     v_downstream = v_upstream / r;
     h0_downstream = h0_upstream * r;
 
-    te_downstream = te_upstream * heating_factor;
-    ti_downstream = ti_upstream * heating_factor;
+    // the jump conditions only fix te + ti downstream
+    double t_sum_upstream = te_upstream + ti_upstream;
+    double heating = t_sum_upstream * (heating_factor - 1.0);
+    mass_equilibrate = inputParams.getOrDefault("mass_equilibrate", true);
+    if (mass_equilibrate) {
+      te_downstream = ti_downstream = 0.5 * (t_sum_upstream + heating);
+    } else {
+      // strong-shock limit: T_s = 3/16 m_s v_upstream^2
+      double mass_sum = electron_mass + ion_mass;
+      te_downstream = te_upstream + heating * electron_mass / mass_sum;
+      ti_downstream = ti_upstream + heating * ion_mass / mass_sum;
+    }
   }
 
   if (shock_method == "none") {
