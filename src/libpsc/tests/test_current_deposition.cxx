@@ -19,6 +19,13 @@ public:
   using dim_t = D;
 
   template <typename F>
+  auto operator()(const F& flds, dim_y tag)
+  {
+    return gt::eval(flds.view(_all, _s(1, _), _all, 1) -
+                    flds.view(_all, _s(0, -1), _all, 1));
+  }
+
+  template <typename F>
   auto operator()(const F& flds, dim_yz tag)
   {
     return gt::eval((flds.view(_all, _s(1, _), _s(1, _), 1) -
@@ -61,6 +68,9 @@ struct CurrentDepositionTest : ::testing::Test
     Int3 gdims = {4, 4, 4};
     if (dim_t::InvarX::value) {
       gdims[0] = 1;
+    }
+    if (dim_t::InvarZ::value) {
+      gdims[2] = 1;
     }
     Double3 length;
     for (int d = 0; d < 3; d++) {
@@ -111,7 +121,9 @@ struct CurrentDepositionTest : ::testing::Test
     psc::deposit::norm::nc<dim_t>(rho_m, ib, xm, 1.);
     psc::deposit::norm::nc<dim_t>(rho_p, ib, xp, 1.);
     gt::gtensor<real_t, 3> d_rho;
-    if (std::is_same<dim_t, dim_yz>::value) {
+    if (std::is_same<dim_t, dim_y>::value) {
+      d_rho = (rho_p - rho_m).view(_all, _s(1, _), _all);
+    } else if (std::is_same<dim_t, dim_yz>::value) {
       d_rho = (rho_p - rho_m).view(_all, _s(1, _), _s(1, _));
     } else {
       d_rho = (rho_p - rho_m).view(_s(1, _), _s(1, _), _s(1, _));
@@ -143,6 +155,23 @@ struct CurrentDepositionTest : ::testing::Test
       << flds.view(0, _all, _all, JZI);
   }
 
+  // 1d (dim_y) refs, indexed by y
+  template <typename F>
+  void test_current_1d(Real3 xm, Real3 xp, Real3 vxi, const F& jxi_ref,
+                       const F& jyi_ref, const F& jzi_ref)
+  {
+    auto flds = calc_current(xm, xp, vxi);
+    check_continuity(xm, xp, flds);
+
+    const real_t eps = 2. * std::numeric_limits<real_t>::epsilon();
+    EXPECT_LT(gt::norm_linf(flds.view(0, _all, 0, JXI) - jxi_ref), eps)
+      << flds.view(0, _all, 0, JXI);
+    EXPECT_LT(gt::norm_linf(flds.view(0, _all, 0, JYI) - jyi_ref), eps)
+      << flds.view(0, _all, 0, JYI);
+    EXPECT_LT(gt::norm_linf(flds.view(0, _all, 0, JZI) - jzi_ref), eps)
+      << flds.view(0, _all, 0, JZI);
+  }
+
   void test_current(Real3 xm, Real3 xp, Real3 vxi)
   {
     auto flds = calc_current(xm, xp, vxi);
@@ -169,6 +198,7 @@ public:
 using CurrentDepositionTestTypes =
   ::testing::Types< // CurrentDepositionTestConfig<float, dim_yz,
                     // Current1vbSplit>,
+    CurrentDepositionTestConfig<double, dim_y, Current1vbSplit>,
     CurrentDepositionTestConfig<double, dim_yz, Current1vbSplit>,
     CurrentDepositionTestConfig<double, dim_yz, CurrentZigzag>,
     CurrentDepositionTestConfig<double, dim_xyz, CurrentZigzag>,
@@ -453,6 +483,56 @@ TYPED_TEST(CurrentDepositionTest, CurrentXYZCrossXYZ)
   Real3 xm = {1.9, 1.8, 1.7}, xp = {2.2, 2.4, 2.6};
   Real3 vxi = {.3, .6, .9};
   this->test_current(xm, xp, vxi);
+}
+
+#define SKIP_UNLESS_DIM_Y()                                                    \
+  if (!std::is_same<typename TypeParam::dim_t, dim_y>::value) {                \
+    GTEST_SKIP();                                                              \
+  }
+
+TYPED_TEST(CurrentDepositionTest, CurrentY1d)
+{
+  SKIP_UNLESS_DIM_Y();
+  using self_type = CurrentDepositionTest<TypeParam>;
+  using real_t = typename self_type::real_t;
+  using Real3 = typename self_type::Real3;
+
+  Real3 xm = {.5, 1., .5}, xp = {.5, 1.2, .5};
+  Real3 vxi = {.1, .2, .3};
+  gt::gtensor<real_t, 1> jxi_ref = {0., .09, .01, 0.};
+  gt::gtensor<real_t, 1> jyi_ref = {0., .2, 0., 0.};
+  gt::gtensor<real_t, 1> jzi_ref = {0., .27, .03, 0.};
+  this->test_current_1d(xm, xp, vxi, jxi_ref, jyi_ref, jzi_ref);
+}
+
+TYPED_TEST(CurrentDepositionTest, CurrentY1dCross)
+{
+  SKIP_UNLESS_DIM_Y();
+  using self_type = CurrentDepositionTest<TypeParam>;
+  using real_t = typename self_type::real_t;
+  using Real3 = typename self_type::Real3;
+
+  Real3 xm = {.5, 1.8, .5}, xp = {.5, 2.3, .5};
+  Real3 vxi = {.1, .5, .3};
+  gt::gtensor<real_t, 1> jxi_ref = {0., .004, .087, .009};
+  gt::gtensor<real_t, 1> jyi_ref = {0., .2, .3, 0.};
+  gt::gtensor<real_t, 1> jzi_ref = {0., .012, .261, .027};
+  this->test_current_1d(xm, xp, vxi, jxi_ref, jyi_ref, jzi_ref);
+}
+
+TYPED_TEST(CurrentDepositionTest, CurrentY1dCrossBack)
+{
+  SKIP_UNLESS_DIM_Y();
+  using self_type = CurrentDepositionTest<TypeParam>;
+  using real_t = typename self_type::real_t;
+  using Real3 = typename self_type::Real3;
+
+  Real3 xm = {.5, 2.3, .5}, xp = {.5, 1.8, .5};
+  Real3 vxi = {.1, -.5, .3};
+  gt::gtensor<real_t, 1> jxi_ref = {0., .004, .087, .009};
+  gt::gtensor<real_t, 1> jyi_ref = {0., -.2, -.3, 0.};
+  gt::gtensor<real_t, 1> jzi_ref = {0., .012, .261, .027};
+  this->test_current_1d(xm, xp, vxi, jxi_ref, jyi_ref, jzi_ref);
 }
 
 int main(int argc, char** argv)
