@@ -10,12 +10,17 @@ macro(add_psc_test name)
   target_gtensor_sources(${name} PRIVATE ${name}.cxx)
   target_link_libraries(${name} psc GTest::gtest)
 
+  psc_add_build_fixture(${name} fixture)
   if(USE_GTEST_DISCOVER_TESTS)
-    gtest_discover_tests(${name} EXEC_WRAPPER ${MPIEXEC_COMMAND})
+    gtest_discover_tests(${name} EXEC_WRAPPER ${MPIEXEC_COMMAND}
+      PROPERTIES FIXTURES_REQUIRED ${fixture})
   else()
     gtest_add_tests(TARGET ${name} EXEC_WRAPPER ${MPIEXEC_COMMAND}
       TEST_LIST tests)
     psc_set_test_working_dirs(${tests})
+    if(tests)
+      set_tests_properties(${tests} PROPERTIES FIXTURES_REQUIRED ${fixture})
+    endif()
   endif()
 endmacro()
 
