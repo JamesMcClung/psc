@@ -3,9 +3,18 @@
 
 #include "testing.hxx"
 #include "rng.hxx"
+#include "../psc_config.hxx"
+
+// the 1vbec pusher psc cases get for dim_y
+using TestConfig1vbecDoubleY =
+  TestConfig<dim_y, MfieldsC,
+             PscConfigPushParticles1vbec<dim_y, MparticlesDouble,
+                                         MfieldsStateDouble>::PushParticles,
+             checks_order_1st>;
 
 using PushParticlesTestTypes =
-  ::testing::Types<TestConfig2ndDoubleYZ, TestConfig1vbec3dSingle
+  ::testing::Types<TestConfig2ndDoubleYZ, TestConfig1vbec3dSingle,
+                   TestConfig1vbecDoubleY
 #ifdef USE_CUDA
                    ,
                    TestConfig1vbec3dCudaYZ
