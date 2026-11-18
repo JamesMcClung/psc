@@ -179,15 +179,7 @@ struct CurrentDepositionTest : ::testing::Test
       << flds.view(0, _all, 0, JZI);
   }
 
-  void test_current(Real3 xm, Real3 xp, Real3 vxi)
-  {
-    auto flds = calc_current(xm, xp, vxi);
-    check_continuity(xm, xp, flds);
-  }
-
-  // like test_current, but the particle starts in cell lg, which needn't be
-  // the one containing xm when xm is on lg's upper face
-  void test_current_from_cell(Real3 xm, Real3 xp, Real3 vxi, Int3 lg)
+  void test_current(Real3 xm, Real3 xp, Real3 vxi, Int3 lg = Int3{-1, -1, -1})
   {
     auto flds = calc_current(xm, xp, vxi, lg);
     check_continuity(xm, xp, flds);
@@ -562,7 +554,7 @@ TYPED_TEST(CurrentDepositionTest, CurrentFromUpperFaceY)
 
   Real3 xm = {1.5, 3., 1.5}, xp = {1.5, 1.6, 1.5};
   Real3 vxi = {0., -1.4, 0.};
-  this->test_current_from_cell(xm, xp, vxi, {1, 2, 1});
+  this->test_current(xm, xp, vxi, {1, 2, 1});
 }
 
 int main(int argc, char** argv)
