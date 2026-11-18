@@ -18,6 +18,6 @@ jobs:
     - name: build
       run: cmake --build build
     - name: test
-      run: cmake --build build -t test
+      run: ctest --test-dir build
       env:
         CTEST_OUTPUT_ON_FAILURE: 1
