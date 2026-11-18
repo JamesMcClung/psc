@@ -644,11 +644,6 @@ static void run(int argc, char** argv)
   // -- Sort
   psc_params.sort_interval = 100;
 
-  // -- Collision
-  int collision_interval = 0;
-  double collision_nu = .1;
-  Collision collision{grid, collision_interval, collision_nu};
-
   // -- Checks
   ChecksParams checks_params{};
   checks_params.gauss.check_interval = checks_interval;
@@ -698,6 +693,13 @@ static void run(int argc, char** argv)
   } else {
     read_checkpoint(checkpoint_filename, *grid_ptr, mprts, mflds);
   }
+
+  // -- Collision
+  // after reading the checkpoint, which may change the decomposition: its
+  // fields aren't redistributed then
+  int collision_interval = 0;
+  double collision_nu = .1;
+  Collision collision{*grid_ptr, collision_interval, collision_nu};
 
   // ----------------------------------------------------------------------
   // run the simulation
