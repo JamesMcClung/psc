@@ -52,17 +52,21 @@ double get_mean_b2(MfieldsState& mflds)
 
   double sum_b2_local = 0.0;
 
+  // H is uniform along invariant dims, which have no neighbor to average with
+  // (and no ghosts to read one from)
+  Int3 next = Int3{!grid.isInvar(0), !grid.isInvar(1), !grid.isInvar(2)};
+
   for (int p = 0; p < mflds.n_patches(); ++p) {
     auto field_patch = make_Fields3d<dim_xyz>(mflds[p]);
 
     grid.Foreach_3d(0, 0, [&](int jx, int jy, int jz) {
       // note: this is not the most efficient calculation method
       sum_b2_local += 0.5 * (sqr(field_patch(HX, jx, jy, jz)) +
-                             sqr(field_patch(HX, jx + 1, jy, jz)) +
+                             sqr(field_patch(HX, jx + next[0], jy, jz)) +
                              sqr(field_patch(HY, jx, jy, jz)) +
-                             sqr(field_patch(HY, jx, jy + 1, jz)) +
+                             sqr(field_patch(HY, jx, jy + next[1], jz)) +
                              sqr(field_patch(HZ, jx, jy, jz)) +
-                             sqr(field_patch(HZ, jx, jy, jz + 1)));
+                             sqr(field_patch(HZ, jx, jy, jz + next[2])));
     });
   }
 
