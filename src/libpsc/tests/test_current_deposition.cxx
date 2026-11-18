@@ -89,8 +89,13 @@ struct CurrentDepositionTest : ::testing::Test
 
   const Grid_t& grid() const { return *grid_; }
 
-  auto calc_current(Real3 xm, Real3 xp, Real3 vxi)
+  // lg is the cell the particle starts in, as the pusher passes it; by default
+  // the one containing xm
+  auto calc_current(Real3 xm, Real3 xp, Real3 vxi, Int3 lg = Int3{-1, -1, -1})
   {
+    if (lg == Int3{-1, -1, -1}) {
+      lg = xm.fint();
+    }
     using fields_view_t = typename T::fields_view_t;
     using fields_t = typename T::fields_t;
 
@@ -104,8 +109,7 @@ struct CurrentDepositionTest : ::testing::Test
     fields_t J{flds_view};
 
     real_t qni_wni = 1.;
-    Int3 lf = {}, lg = {}; // FIXME, those aren't actually used at all in
-                           // Current1VbSplit, at least
+    Int3 lf = xp.fint();
     curr.calc_j(J, xm, xp, lf, lg, qni_wni, vxi);
     return flds;
   }
@@ -178,6 +182,14 @@ struct CurrentDepositionTest : ::testing::Test
   void test_current(Real3 xm, Real3 xp, Real3 vxi)
   {
     auto flds = calc_current(xm, xp, vxi);
+    check_continuity(xm, xp, flds);
+  }
+
+  // like test_current, but the particle starts in cell lg, which needn't be
+  // the one containing xm when xm is on lg's upper face
+  void test_current_from_cell(Real3 xm, Real3 xp, Real3 vxi, Int3 lg)
+  {
+    auto flds = calc_current(xm, xp, vxi, lg);
     check_continuity(xm, xp, flds);
   }
 
@@ -528,6 +540,29 @@ TYPED_TEST(CurrentDepositionTest, CurrentY1dCrossBack)
   gt::gtensor<real_t, 1> jyi_ref = {0., -.2, -.3, 0.};
   gt::gtensor<real_t, 1> jzi_ref = {0., .012, .261, .027};
   this->test_current_1d(xm, xp, vxi, jxi_ref, jyi_ref, jzi_ref);
+}
+
+// the upper boundary injector starts particles on the outer face of the upper
+// ghost cell, i.e., on the upper face of the cell they start in
+template <typename C>
+struct is_current_1vb_split : std::false_type
+{};
+
+template <typename O, typename D, typename F>
+struct is_current_1vb_split<Current1vbSplit<O, D, F>> : std::true_type
+{};
+
+TYPED_TEST(CurrentDepositionTest, CurrentFromUpperFaceY)
+{
+  using self_type = CurrentDepositionTest<TypeParam>;
+  using Real3 = typename self_type::Real3;
+  if (!is_current_1vb_split<typename self_type::Current>::value) {
+    return;
+  }
+
+  Real3 xm = {1.5, 3., 1.5}, xp = {1.5, 1.6, 1.5};
+  Real3 vxi = {0., -1.4, 0.};
+  this->test_current_from_cell(xm, xp, vxi, {1, 2, 1});
 }
 
 int main(int argc, char** argv)
