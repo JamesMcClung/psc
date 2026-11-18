@@ -337,9 +337,27 @@ T interpolate_across_shock(T upstream, T downstream, double y)
 // also encompasses PC normalization parameters, information about the
 // particle kinds, etc.
 
+// A dimension must have exactly 1 cell iff Dim is invariant in it; otherwise
+// the run would silently compute garbage, so fail early.
+static void check_gdims_match_dim(const Int3& gdims)
+{
+  const char* names[3] = {"nx", "ny", "nz"};
+  const char* axes[3] = {"x", "y", "z"};
+  for (int d = 0; d < 3; d++) {
+    if (Dim::is_invar(d) && gdims[d] != 1) {
+      LOG_ERROR("%s = %d, but Dim is invariant in %s, so %s must be 1\n",
+                names[d], gdims[d], axes[d], names[d]);
+    }
+    if (!Dim::is_invar(d) && gdims[d] == 1) {
+      LOG_ERROR("%s = 1, but Dim varies in %s, so %s must be > 1\n", names[d],
+                axes[d], names[d]);
+    }
+  }
+}
+
 Grid_t* setupGrid()
 {
-  // FIXME add a check to catch mismatch between Dim and n grid points early
+  check_gdims_match_dim(gdims);
 
   Double3 corner;
   int bnd_fld_lower;
