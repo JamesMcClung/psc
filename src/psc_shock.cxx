@@ -96,7 +96,8 @@ int marder_interval;
 
 std::string turb_method;
 std::string shock_method;
-std::string injection_method;
+std::string injection_method_upstream;
+std::string injection_method_downstream;
 std::string neumann_resample_method;
 int neumann_copy_depth;
 
@@ -122,26 +123,33 @@ void setupParameters(int argc, char** argv)
   InputParams inputParams(path_to_params);
 
   shock_method = inputParams.getOrDefault<std::string>("shock_method", "wall");
-  injection_method =
+
+  injection_method_upstream =
     inputParams.getOrDefault<std::string>("injection_method", "dirichlet");
-  if (injection_method != "dirichlet" && injection_method != "neumann" &&
-      injection_method != "periodic") {
-    LOG_ERROR("unknown injection_method: %s\n", injection_method.c_str());
+  injection_method_downstream = inputParams.getOrDefault<std::string>(
+    "injection_method_downstream", injection_method_upstream);
+
+  if (injection_method_upstream != "dirichlet" &&
+      injection_method_upstream != "neumann" &&
+      injection_method_upstream != "periodic") {
+    LOG_ERROR("unknown injection_method: %s\n",
+              injection_method_upstream.c_str());
   }
-  if (injection_method == "periodic" && shock_method == "wall") {
+  if (injection_method_downstream != "dirichlet" &&
+      injection_method_downstream != "neumann" &&
+      injection_method_downstream != "periodic") {
+    LOG_ERROR("unknown injection_method: %s\n",
+              injection_method_downstream.c_str());
+  }
+  if (injection_method_upstream == "periodic" &&
+      injection_method_downstream != "periodic") {
+    LOG_ERROR("'periodic' injection must apply to upstream and downstream\n");
+  }
+
+  if (injection_method_upstream == "periodic" && shock_method == "wall") {
     LOG_ERROR("injection_method=periodic is incompatible with "
               "shock_method=wall\n");
   }
-  neumann_resample_method =
-    inputParams.getOrDefault<std::string>("neumann_resample_method", "none");
-  if (neumann_resample_method != "none" &&
-      neumann_resample_method != "maxwellian" &&
-      neumann_resample_method != "rotate") {
-    LOG_ERROR("unknown neumann_resample_method: %s\n",
-              neumann_resample_method.c_str());
-  }
-  // copy particles as they cross the face this many cells from the boundary
-  neumann_copy_depth = inputParams.getOrDefault<int>("neumann_copy_depth", 1);
 
   psc_params.stats_every =
     inputParams.getOrDefault<int>("stats_interval", 1000);
@@ -262,7 +270,8 @@ void setupParameters(int argc, char** argv)
     }
   }
 
-  if (injection_method == "dirichlet") {
+  if (injection_method_upstream == "dirichlet" ||
+      injection_method_downstream == "dirichlet") {
     preaccelerate_time_plasma_periods = inputParams.getOrDefault<double>(
       "preaccelerate_time_plasma_periods", 0.5);
     // ions may be kicked differently (in ion plasma periods); 0 disables
@@ -280,6 +289,22 @@ void setupParameters(int argc, char** argv)
     preaccelerate_sample_boundary =
       inputParams.getOrDefault<std::string>("preaccelerate_sample", "cell") ==
       "boundary";
+  }
+
+  if (injection_method_upstream == "neumann" ||
+      injection_method_downstream == "neumann") {
+    neumann_resample_method =
+      inputParams.getOrDefault<std::string>("neumann_resample_method", "none");
+
+    if (neumann_resample_method != "none" &&
+        neumann_resample_method != "maxwellian" &&
+        neumann_resample_method != "rotate") {
+      LOG_ERROR("unknown neumann_resample_method: %s\n",
+                neumann_resample_method.c_str());
+    }
+
+    // copy particles as they cross the face this many cells from the boundary
+    neumann_copy_depth = inputParams.getOrDefault<int>("neumann_copy_depth", 1);
   }
 
   int n_writes = inputParams.getOrDefault<int>("n_writes", 100);
@@ -378,7 +403,7 @@ Grid_t* setupGrid()
     bnd_prt_upper = BND_PRT_OPEN;
   }
 
-  if (injection_method == "periodic") {
+  if (injection_method_upstream == "periodic") {
     bnd_fld_lower = BND_FLD_PERIODIC;
     bnd_fld_upper = BND_FLD_PERIODIC;
     bnd_prt_lower = BND_PRT_PERIODIC;
@@ -697,8 +722,8 @@ static void run(int argc, char** argv)
   // set up initial conditions
 
   // the lower boundary injects the initial turbulence, advected in
-  bool advect_turbulence =
-    injection_method != "periodic" && turb_db2 > 0.0 && v_upstream[1] > 0.0;
+  bool advect_turbulence = injection_method_upstream != "periodic" &&
+                           turb_db2 > 0.0 && v_upstream[1] > 0.0;
 
   if (checkpoint_filename.empty()) {
     initializeParticles(balance, grid_ptr, mprts);
@@ -735,19 +760,19 @@ static void run(int argc, char** argv)
   using psc::bnd::LoHi;
   using ConstantPulse = psc::bnd::field::ConstantPulse<real_t>;
 
-  if (injection_method == "dirichlet") {
+  if (injection_method_upstream == "dirichlet") {
     psc.add_injector(makeDirichletInjector(
       mprts.grid(), LoHi::Lo, KIND_ION, n_upstream, v_upstream, ti_upstream,
       ion_mass, preaccelerate_ion_time_plasma_periods));
     psc.add_injector(makeDirichletInjector(
       mprts.grid(), LoHi::Lo, KIND_ELECTRON, n_upstream, v_upstream,
       te_upstream, electron_mass, preaccelerate_time_plasma_periods));
-  } else if (injection_method == "neumann") {
+  } else if (injection_method_upstream == "neumann") {
     psc.add_injector(
       makeNeumannInjector(mprts.grid(), LoHi::Lo, te_upstream, ti_upstream));
   }
 
-  if (injection_method != "periodic") {
+  if (injection_method_upstream != "periodic") {
     if (advect_turbulence) {
       MfieldsState* mflds_advect;
       if (checkpoint_filename.empty()) {
@@ -775,15 +800,15 @@ static void run(int argc, char** argv)
   }
 
   if ((shock_method == "relaxation" || shock_method == "none") &&
-      injection_method != "periodic") {
-    if (injection_method == "dirichlet") {
+      injection_method_downstream != "periodic") {
+    if (injection_method_downstream == "dirichlet") {
       psc.add_injector(makeDirichletInjector(
         mprts.grid(), LoHi::Hi, KIND_ION, n_downstream, v_downstream,
         ti_downstream, ion_mass, preaccelerate_ion_time_plasma_periods));
       psc.add_injector(makeDirichletInjector(
         mprts.grid(), LoHi::Hi, KIND_ELECTRON, n_downstream, v_downstream,
         te_downstream, electron_mass, preaccelerate_time_plasma_periods));
-    } else if (injection_method == "neumann") {
+    } else if (injection_method_downstream == "neumann") {
       psc.add_injector(makeNeumannInjector(mprts.grid(), LoHi::Hi,
                                            te_downstream, ti_downstream));
     }
