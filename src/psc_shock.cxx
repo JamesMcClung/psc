@@ -203,7 +203,6 @@ void setupParameters(int argc, char** argv)
 
     double tmp = 1.0 + (1.0 + 2.5 * beta1) * B1.mag2();
     double r = 8.0 / (tmp + sqrt(sqr(tmp) + 2 * B1.mag2()));
-    r = inputParams.getOrDefault<double>("r", r);
 
     double heating_factor =
       1.0 +
@@ -213,10 +212,8 @@ void setupParameters(int argc, char** argv)
     v_downstream = v_upstream / r;
     h0_downstream = h0_upstream * r;
 
-    te_downstream =
-      inputParams.getOrDefault<double>("T_e2", te_upstream * heating_factor);
-    ti_downstream =
-      inputParams.getOrDefault<double>("T_i2", ti_upstream * heating_factor);
+    te_downstream = te_upstream * heating_factor;
+    ti_downstream = ti_upstream * heating_factor;
   }
 
   if (shock_method == "none") {
