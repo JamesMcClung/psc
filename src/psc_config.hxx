@@ -71,6 +71,16 @@ struct PscConfigPushParticles1vbec<dim_xz, Mparticles, Mfields>
     PushParticlesVb<Config1vbecSplit<Mparticles, Mfields, dim_xz>>;
 };
 
+// dim_y also uses the split deposit, since Current1vbVar1 is yz-only. In 1d a
+// particle crosses at most one face per step, so the split costs little. This
+// is the single place to swap in a dedicated 1d deposit.
+template <typename Mparticles, typename Mfields>
+struct PscConfigPushParticles1vbec<dim_y, Mparticles, Mfields>
+{
+  using PushParticles =
+    PushParticlesVb<Config1vbecSplit<Mparticles, Mfields, dim_y>>;
+};
+
 template <typename _Dim, typename _Mparticles, typename _MfieldsState,
           typename _Mfields, template <typename...> class ConfigPushParticles,
           typename _Simulation = SimulationNone>
