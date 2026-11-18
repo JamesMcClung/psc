@@ -31,6 +31,13 @@ public:
 
 private:
   template <typename F>
+  void operator()(F& flds, const Int3& l, const Real3& h, real_t val, dim_y tag)
+  {
+    flds(0, l[1] + 0, 0) += val * (1.f - h[1]);
+    flds(0, l[1] + 1, 0) += val * h[1];
+  }
+
+  template <typename F>
   void operator()(F& flds, const Int3& l, const Real3& h, real_t val,
                   dim_yz tag)
   {
