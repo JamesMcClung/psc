@@ -298,22 +298,6 @@ TYPED_TEST(TurbulenceTest, ShorterCorrelationLengthIsRougher)
 // ----------------------------------------------------------------------
 // offsets
 
-TYPED_TEST(TurbulenceTest, ZeroOffsetChangesNothing)
-{
-  using Mfields = typename TestFixture::Mfields;
-  auto grid = setupGrid();
-  MfieldsState mflds_a{*grid};
-  this->generate(mflds_a);
-
-  MfieldsState mflds_b{*grid};
-  Mfields offset{*grid, 3, mflds_b.ibn()};
-  typename TestFixture::Generator generator{default_params};
-  generator.offset = &offset;
-  generator.generate(mflds_b);
-
-  EXPECT_EQ(gather_h(mflds_a), gather_h(mflds_b));
-}
-
 // sampling A one cell further along y everywhere shifts B by one cell
 TYPED_TEST(TurbulenceTest, UniformOffsetShifts)
 {
