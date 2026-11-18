@@ -44,6 +44,19 @@ struct Current1vbSplit
     return i;
   }
 
+  // The cell a segment from xm to xp ends in, along one dim. An end on a face
+  // is in the cell below it if the segment moves up, e.g., an outgoing particle
+  // moved to the outer face of an upper ghost cell; otherwise the split would
+  // deposit a zero-length piece in the cell beyond.
+  static int end_cell(real_t xm, real_t xp)
+  {
+    int i = fint(xp);
+    if (xp > xm && xp == real_t(i)) {
+      i--;
+    }
+    return i;
+  }
+
   static Real3 calc_split_x1(int dim, int im, int ip, const Real3& xm,
                              const Real3& xp)
   {
@@ -69,7 +82,7 @@ struct Current1vbSplit
   {
     constexpr int dim = 0;
     int im = start_cell(xm[dim], xp[dim]);
-    int ip = fint(xp[dim]);
+    int ip = end_cell(xm[dim], xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_one_cell(curr_cache, qni_wni, xm, xp);
     } else {
@@ -84,7 +97,7 @@ struct Current1vbSplit
   {
     constexpr int dim = 1;
     int im = start_cell(xm[dim], xp[dim]);
-    int ip = fint(xp[dim]);
+    int ip = end_cell(xm[dim], xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_split_dim_x(curr_cache, qni_wni, xm, xp);
     } else {
@@ -99,7 +112,7 @@ struct Current1vbSplit
   {
     constexpr int dim = 2;
     int im = start_cell(xm[dim], xp[dim]);
-    int ip = fint(xp[dim]);
+    int ip = end_cell(xm[dim], xp[dim]);
     if (Dim::is_invar(dim) || ip == im) {
       calc_j2_split_dim_y(curr_cache, qni_wni, xm, xp);
     } else {
