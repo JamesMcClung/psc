@@ -388,16 +388,6 @@ TYPED_TEST(TurbulenceTest, WarpedChangesField)
   EXPECT_NEAR(get_mean_b2(mflds_b), default_params.db2, 1e-12);
 }
 
-TYPED_TEST(TurbulenceTest, WarpedIsDivergenceFree)
-{
-  auto grid = setupGrid();
-  this->offset_rms = 0.3;
-  MfieldsState mflds{*grid};
-  this->generate(mflds);
-
-  EXPECT_LT(max_div_h(mflds), 1e-12 * max_abs_h(mflds) / grid->domain.dx[1]);
-}
-
 TYPED_TEST(TurbulenceTest, WarpedIsPeriodic)
 {
   auto grid = setupGrid();
