@@ -185,9 +185,8 @@ struct MparticlesSimple : MparticlesBase
     storage_.push_back(p, prt);
   }
 
-  /// appends without moving the particle into the patch; for use between the
-  /// particle push and particle exchange, which moves particles outside their
-  /// patch, injected ones included
+  /// appends without moving the particle into the patch, e.g. between the
+  /// particle push and particle exchange
   void push_back_unchecked(int p, const Particle& prt)
   {
     storage_.push_back(p, prt);
