@@ -557,6 +557,35 @@ TYPED_TEST(CurrentDepositionTest, CurrentFromUpperFaceY)
   this->test_current(xm, xp, vxi, {1, 2, 1});
 }
 
+// records the highest y index a deposit adds to, even if it adds 0
+struct MaxYRecordingCurr
+{
+  using real_t = double;
+  using value_type = double;
+  void add(int m, int i, int j, int k, double val) const
+  {
+    *max_j = std::max(*max_j, j);
+  }
+  int* max_j;
+};
+
+TEST(Current1vbSplitTest, EndOnUpperFaceY)
+{
+  // OpenBoundaryOutflow moves a particle in the upper ghost cell (here [2, 3))
+  // to its outer face, y = 3. The deposit is in cell 2, so it reaches node 3,
+  // but no further.
+  auto domain = Grid_t::Domain{{1, 2, 1}, {1., 2., 1.}};
+  auto norm =
+    Grid_t::Normalization{Grid_t::NormalizationParams::dimensionless()};
+  Grid_t grid{domain, {}, {}, norm, .1, -1, {0, 2, 0}};
+  Current1vbSplit<opt_order_1st, dim_y, MaxYRecordingCurr> current{grid};
+
+  int max_j = std::numeric_limits<int>::min();
+  Vec3<double> xm = {.5, 2.4, .5}, xp = {.5, 3., .5}, vxi = {0., 1., 0.};
+  current.calc_j(MaxYRecordingCurr{&max_j}, xm, xp, {}, {}, 1., vxi);
+  EXPECT_EQ(max_j, 3);
+}
+
 int main(int argc, char** argv)
 {
   MPI_Init(&argc, &argv);
