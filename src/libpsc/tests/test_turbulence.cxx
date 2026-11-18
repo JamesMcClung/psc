@@ -69,6 +69,21 @@ double max_abs_h(MfieldsState& mflds)
   return max;
 }
 
+// max |H_a - H_b| over the domain's cells; the grids may be decomposed
+// differently
+double max_diff_h(MfieldsState& a, MfieldsState& b)
+{
+  auto h_a = gather_h(a);
+  auto h_b = gather_h(b);
+  double max_diff = 0.0;
+  for (int m = 0; m < 3; m++) {
+    for (int i = 0; i < h_a[m].size(); i++) {
+      max_diff = std::max(max_diff, std::abs(h_a[m][i] - h_b[m][i]));
+    }
+  }
+  return max_diff;
+}
+
 // max |div H| over the interior of patch 0, for x invariant
 double max_div_h(MfieldsState& mflds)
 {
@@ -216,16 +231,7 @@ TYPED_TEST(TurbulenceTest, IndependentOfDecomposition)
   this->generate(mflds_4);
   ASSERT_EQ(mflds_4.n_patches(), 4);
 
-  auto h_1 = gather_h(mflds_1);
-  auto h_4 = gather_h(mflds_4);
-  double max_diff = 0.0;
-  for (int m = 0; m < 3; m++) {
-    for (int i = 0; i < h_1[m].size(); i++) {
-      max_diff = std::max(max_diff, std::abs(h_1[m][i] - h_4[m][i]));
-    }
-  }
-
-  EXPECT_LT(max_diff, 1e-12 * max_abs_h(mflds_1));
+  EXPECT_LT(max_diff_h(mflds_1, mflds_4), 1e-12 * max_abs_h(mflds_1));
 }
 
 TYPED_TEST(TurbulenceTest, DeterminedBySeed)
@@ -360,15 +366,7 @@ TYPED_TEST(TurbulenceTest, WarpedChangesField)
   MfieldsState mflds_b{*grid};
   this->generate(mflds_b);
 
-  auto h_a = gather_h(mflds_a);
-  auto h_b = gather_h(mflds_b);
-  double max_diff = 0.0;
-  for (int m = 0; m < 3; m++) {
-    for (int i = 0; i < h_a[m].size(); i++) {
-      max_diff = std::max(max_diff, std::abs(h_a[m][i] - h_b[m][i]));
-    }
-  }
-  EXPECT_GT(max_diff, 0.1 * max_abs_h(mflds_a));
+  EXPECT_GT(max_diff_h(mflds_a, mflds_b), 0.1 * max_abs_h(mflds_a));
   EXPECT_NEAR(get_mean_b2(mflds_b), default_params.db2, 1e-12);
 }
 
@@ -393,15 +391,7 @@ TYPED_TEST(TurbulenceTest, WarpedIsIndependentOfDecomposition)
   MfieldsState mflds_4{*grid_4};
   this->generate(mflds_4);
 
-  auto h_1 = gather_h(mflds_1);
-  auto h_4 = gather_h(mflds_4);
-  double max_diff = 0.0;
-  for (int m = 0; m < 3; m++) {
-    for (int i = 0; i < h_1[m].size(); i++) {
-      max_diff = std::max(max_diff, std::abs(h_1[m][i] - h_4[m][i]));
-    }
-  }
-  EXPECT_LT(max_diff, 1e-12 * max_abs_h(mflds_1));
+  EXPECT_LT(max_diff_h(mflds_1, mflds_4), 1e-12 * max_abs_h(mflds_1));
 }
 
 TEST(LevelWavenumbersTest, EvenlySpacedAreTheIntegers)
