@@ -167,7 +167,7 @@ struct ConductingWall : FieldBcBase<MfieldsState>
 
           // 2. normal component: wall is at i3-dhat/2
           for (Int3 j3 = dhat; j3[d] <= mflds.ibn()[d]; j3[d]++) {
-            F(E0, i3 + j3) = -F(E0, i3 - j3 + dhat);
+            F(E0, i3 + j3 - dhat) = -F(E0, i3 - j3);
           }
         }
       }
@@ -232,8 +232,8 @@ struct ConductingWall : FieldBcBase<MfieldsState>
         for (Int3 i3 : VecRange(start, stop)) {
           // 1. transverse components: wall is at i3-dhat/2
           for (Int3 j3 = dhat; j3[d] <= mflds.ibn()[d]; j3[d]++) {
-            F(H1, i3 + j3) = -F(H1, i3 - j3 + dhat);
-            F(H2, i3 + j3) = -F(H2, i3 - j3 + dhat);
+            F(H1, i3 + j3 - dhat) = -F(H1, i3 - j3);
+            F(H2, i3 + j3 - dhat) = -F(H2, i3 - j3);
           }
 
           // 2. normal component: wall is at i3, and there's one less ghost
