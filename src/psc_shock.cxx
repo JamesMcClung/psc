@@ -5,7 +5,6 @@
 #include "output_fields.hxx"
 #include "psc_config.hxx"
 #include "input_params.hxx"
-#include "kg/include/kg/VecRange.hxx"
 #include "libpsc/psc_output_particles/output_particles_adios2_impl.hxx"
 #include "libpsc/psc_bnd_fields/advecting.hxx"
 #include "libpsc/psc_bnd_fields/radiating.hxx"
