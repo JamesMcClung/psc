@@ -24,6 +24,9 @@ struct DepositTest : ::testing::Test
     if (dim_t::InvarX::value) {
       ldims_[0] = 1;
     }
+    if (dim_t::InvarZ::value) {
+      ldims_[2] = 1;
+    }
   }
 
   Int3 ldims_;
@@ -38,7 +41,8 @@ public:
   using dim_t = D;
 };
 
-using DepositTestTypes = ::testing::Types<DepositTestConfig<double, dim_yz>,
+using DepositTestTypes = ::testing::Types<DepositTestConfig<double, dim_y>,
+                                          DepositTestConfig<double, dim_yz>,
                                           DepositTestConfig<double, dim_xyz>>;
 
 TYPED_TEST_SUITE(DepositTest, DepositTestTypes);
@@ -58,6 +62,8 @@ TYPED_TEST(DepositTest, ChargeCenter)
     rho_ref.view(_s(1, 3), _s(1, 3), _s(1, 3)) = val / 8.f;
   } else if (std::is_same<dim_t, dim_yz>::value) {
     rho_ref.view(0, _s(1, 3), _s(1, 3)) = val / 4.f;
+  } else if (std::is_same<dim_t, dim_y>::value) {
+    rho_ref.view(0, _s(1, 3), 0) = val / 2.f;
   }
 
   auto flds = gt::zeros_like(rho_ref);
@@ -81,6 +87,8 @@ TYPED_TEST(DepositTest, ChargeLowerLeft)
     rho_ref(1, 1, 1) = val;
   } else if (std::is_same<dim_t, dim_yz>::value) {
     rho_ref(0, 1, 1) = val;
+  } else if (std::is_same<dim_t, dim_y>::value) {
+    rho_ref(0, 1, 0) = val;
   }
 
   auto flds = gt::zeros_like(rho_ref);
@@ -104,6 +112,8 @@ TYPED_TEST(DepositTest, ChargeCenterWithBnd)
     rho_ref.view(_s(1, 3), _s(1, 3), _s(1, 3)) = val / 8.f;
   } else if (std::is_same<dim_t, dim_yz>::value) {
     rho_ref.view(0, _s(1, 3), _s(1, 3)) = val / 4.f;
+  } else if (std::is_same<dim_t, dim_y>::value) {
+    rho_ref.view(0, _s(1, 3), 0) = val / 2.f;
   }
 
   auto flds = gt::zeros_like(rho_ref);
@@ -127,6 +137,8 @@ TYPED_TEST(DepositTest, ChargeCenterWithBndCc)
     rho_ref(1, 1, 1) = val;
   } else if (std::is_same<dim_t, dim_yz>::value) {
     rho_ref(0, 1, 1) = val;
+  } else if (std::is_same<dim_t, dim_y>::value) {
+    rho_ref(0, 1, 0) = val;
   }
 
   auto flds = gt::zeros_like(rho_ref);
