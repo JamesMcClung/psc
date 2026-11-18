@@ -160,6 +160,9 @@ struct CurrentDepositionTest : ::testing::Test
   void test_current_1d(Real3 xm, Real3 xp, Real3 vxi, const F& jxi_ref,
                        const F& jyi_ref, const F& jzi_ref)
   {
+    if (!std::is_same<dim_t, dim_y>::value) {
+      return;
+    }
     auto flds = calc_current(xm, xp, vxi);
     check_continuity(xm, xp, flds);
 
@@ -485,14 +488,8 @@ TYPED_TEST(CurrentDepositionTest, CurrentXYZCrossXYZ)
   this->test_current(xm, xp, vxi);
 }
 
-#define SKIP_UNLESS_DIM_Y()                                                    \
-  if (!std::is_same<typename TypeParam::dim_t, dim_y>::value) {                \
-    GTEST_SKIP();                                                              \
-  }
-
 TYPED_TEST(CurrentDepositionTest, CurrentY1d)
 {
-  SKIP_UNLESS_DIM_Y();
   using self_type = CurrentDepositionTest<TypeParam>;
   using real_t = typename self_type::real_t;
   using Real3 = typename self_type::Real3;
@@ -507,7 +504,6 @@ TYPED_TEST(CurrentDepositionTest, CurrentY1d)
 
 TYPED_TEST(CurrentDepositionTest, CurrentY1dCross)
 {
-  SKIP_UNLESS_DIM_Y();
   using self_type = CurrentDepositionTest<TypeParam>;
   using real_t = typename self_type::real_t;
   using Real3 = typename self_type::Real3;
@@ -522,7 +518,6 @@ TYPED_TEST(CurrentDepositionTest, CurrentY1dCross)
 
 TYPED_TEST(CurrentDepositionTest, CurrentY1dCrossBack)
 {
-  SKIP_UNLESS_DIM_Y();
   using self_type = CurrentDepositionTest<TypeParam>;
   using real_t = typename self_type::real_t;
   using Real3 = typename self_type::Real3;
