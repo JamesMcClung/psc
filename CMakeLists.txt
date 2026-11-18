@@ -86,6 +86,20 @@ if(BUILD_TESTING)
       set_tests_properties(${test} PROPERTIES WORKING_DIRECTORY ${test_dir})
     endforeach()
   endfunction()
+
+  # Adds a test that (re)builds `target`, as a fixture that tests running
+  # `target` require. Otherwise ctest runs whatever stale binary is left when a
+  # build fails, and may report it passing. Returns the fixture's name in
+  # `fixture_var`; the caller adds it to its tests' FIXTURES_REQUIRED.
+  function(psc_add_build_fixture target fixture_var)
+    set(fixture build_${target})
+    add_test(NAME ${fixture}
+      COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${target})
+    # builds share the build tree, so never run them in parallel
+    set_tests_properties(${fixture} PROPERTIES
+      FIXTURES_SETUP ${fixture} RESOURCE_LOCK psc_build)
+    set(${fixture_var} ${fixture} PARENT_SCOPE)
+  endfunction()
 endif()
 
 set(MPI_CXX_SKIP_MPICXX ON)
