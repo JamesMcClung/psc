@@ -20,9 +20,11 @@ cmake --build build -j                                  # everything
 cmake --build build -t test_neumann_boundary_injector   # one test binary
 ./build/src/libpsc/tests/test_neumann_boundary_injector --gtest_filter='*.InwardsLo'
 cd build && ctest -R NeumannBoundaryInjectorTest        # ctest names = gtest names, not binary names
+# ctest (re)builds each test binary first (`build_<binary>` fixture); a failed build makes its tests "Not Run".
+# Run ctest directly, not `cmake --build build -t test`, which would nest the fixture builds inside the outer build.
 
 # What CI runs (.github/workflows/psc-cpu.yml, GCC 13 in ghcr.io/psc-code/psc-cpp-ubuntu-20.04)
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja && cmake --build build -t test
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -G Ninja && cmake --build build && ctest --test-dir build
 ```
 
 GPU backend is chosen with `-DPSC_GPU=host|cuda|hip` (README's `USE_CUDA` is legacy).
