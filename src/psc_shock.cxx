@@ -84,6 +84,7 @@ double transition_steepness = 2.0; // at least sqrt(3)~1.74
 
 Int3 gdims;
 Double3 lengths;
+Double3 corner;
 Int3 n_patches;
 
 double turb_db2;
@@ -296,6 +297,11 @@ void setupParameters(int argc, char** argv)
     lengths[2] = inputParams.get<double>("dz") * gdims[2];
   }
 
+  corner[0] = 0.0;
+  corner[1] = inputParams.getOrDefault(
+    "corner_y", shock_method == "wall" ? 0.0 : -lengths[1] / 2.0);
+  corner[2] = 0.0;
+
   transition_half_width = lengths[1] / 8.0;
 
   turb_db2 = sqr(inputParams.get<double>("dB"));
@@ -432,20 +438,17 @@ Grid_t* setupGrid()
 {
   check_gdims_match_dim(gdims);
 
-  Double3 corner;
   int bnd_fld_lower;
   int bnd_fld_upper;
   int bnd_prt_lower;
   int bnd_prt_upper;
 
   if (shock_method == "wall") {
-    corner = {0.0, 0.0, 0.0};
     bnd_fld_lower = BND_FLD_OPEN;
     bnd_fld_upper = BND_FLD_CONDUCTING_WALL;
     bnd_prt_lower = BND_PRT_OPEN;
     bnd_prt_upper = BND_PRT_REFLECTING;
   } else if (shock_method == "relaxation" || shock_method == "none") {
-    corner = {0.0, -lengths[1] / 2.0, 0.0};
     bnd_fld_lower = BND_FLD_OPEN;
     bnd_fld_upper = BND_FLD_OPEN;
     bnd_prt_lower = BND_PRT_OPEN;
