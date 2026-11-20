@@ -65,6 +65,55 @@ TEST(Grid, MoveAssign)
   grid2 = std::move(grid);
 }
 
+// Count live communicators by intercepting MPI_Comm_dup / MPI_Comm_free (the
+// only ways libmrc and psc create / free them) via the MPI profiling interface.
+static int n_live_comms;
+
+extern "C" int MPI_Comm_dup(MPI_Comm comm, MPI_Comm* newcomm)
+{
+  n_live_comms++;
+  return PMPI_Comm_dup(comm, newcomm);
+}
+
+extern "C" int MPI_Comm_free(MPI_Comm* comm)
+{
+  n_live_comms--;
+  return PMPI_Comm_free(comm);
+}
+
+// The balancer deletes the old grid on every rebalance; a leaked communicator
+// per grid exhausts MPI's context ids (2048 in MPICH) on long runs.
+TEST(Grid, DtorFreesCommunicators)
+{
+  auto domain =
+    Grid_t::Domain{{8, 4, 2}, {80., 40., 20.}, {-40., -20., 0.}, {2, 2, 1}};
+  auto bc = psc::grid::BC{};
+  auto kinds = Grid_t::Kinds{};
+  auto norm = Grid_t::Normalization{};
+  auto ibn = Int3{2, 2, 2}; // so that the grid creates its ddc
+
+  int n_live = n_live_comms;
+  delete new Grid_t{domain, bc, kinds, norm, .1, -1, ibn};
+  EXPECT_EQ(n_live_comms, n_live);
+}
+
+TEST(Grid, MoveAssignFreesCommunicators)
+{
+  auto domain =
+    Grid_t::Domain{{8, 4, 2}, {80., 40., 20.}, {-40., -20., 0.}, {2, 2, 1}};
+  auto bc = psc::grid::BC{};
+  auto kinds = Grid_t::Kinds{};
+  auto norm = Grid_t::Normalization{};
+  auto ibn = Int3{2, 2, 2};
+
+  int n_live = n_live_comms;
+  {
+    auto grid = Grid_t{domain, bc, kinds, norm, .1, -1, ibn};
+    grid = Grid_t{domain, bc, kinds, norm, .1, -1, ibn};
+  }
+  EXPECT_EQ(n_live_comms, n_live);
+}
+
 TEST(Grid, Kinds)
 {
   auto kinds = Grid_t::Kinds{};
