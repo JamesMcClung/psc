@@ -10,6 +10,7 @@
 #include "grid/domain.hxx"
 #include <mrc_ddc.h>
 
+#include <memory>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -157,7 +158,12 @@ struct Grid_
   Int3 ibn; // FIXME
   int timestep_ = 0;
   MrcDomain mrc_domain_;
-  mutable mrc_ddc* ddc_ = {};
+  struct DdcDeleter
+  {
+    void operator()(mrc_ddc* ddc) const { mrc_ddc_destroy(ddc); }
+  };
+  // declared after mrc_domain_, so it's destroyed first, as it refers to it
+  mutable std::unique_ptr<mrc_ddc, DdcDeleter> ddc_;
   mutable int balance_generation_cnt_;
 
   const MrcDomain& mrc_domain() const { return mrc_domain_; }
@@ -168,7 +174,7 @@ struct Grid_
       reset_ddc();
     }
     assert(ddc_);
-    return ddc_;
+    return ddc_.get();
   }
 
   MPI_Comm comm() const { return MPI_COMM_WORLD; }
@@ -189,14 +195,12 @@ struct Grid_
 
   void reset_ddc() const
   {
-    if (ddc_) {
-      mrc_ddc_destroy(ddc_);
-    }
+    ddc_.reset();
     if (ibn[0] > 0 || ibn[1] > 0 || ibn[2] > 0) {
-      ddc_ = create_ddc();
-      mrc_ddc_set_param_int3(ddc_, "ibn", ibn);
-      mrc_ddc_set_param_int(ddc_, "max_n_fields", 24);
-      mrc_ddc_setup(ddc_);
+      ddc_.reset(create_ddc());
+      mrc_ddc_set_param_int3(ddc_.get(), "ibn", ibn);
+      mrc_ddc_set_param_int(ddc_.get(), "max_n_fields", 24);
+      mrc_ddc_setup(ddc_.get());
     }
     balance_generation_cnt_ = psc_balance_generation_cnt;
   }
