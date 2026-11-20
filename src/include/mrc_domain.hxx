@@ -6,6 +6,7 @@
 
 #include <mrc_domain_private.h>
 
+#include <utility>
 #include <vector>
 
 // ======================================================================
@@ -63,10 +64,8 @@ struct MrcDomain
 
   MrcDomain& operator=(MrcDomain&& o)
   {
-    if (this != &o) {
-      domain_ = o.domain_;
-      o.domain_ = nullptr;
-    }
+    // swap, so that o's dtor destroys our old domain
+    std::swap(domain_, o.domain_);
     return *this;
   }
 
